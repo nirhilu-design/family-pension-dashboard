@@ -3,7 +3,7 @@ import UploadPage from "./UploadPage";
 import ReportPage from "./ReportPage";
 
 export default function App() {
-  const [currentStep, setCurrentStep] = useState("upload"); // upload | report
+  const [currentStep, setCurrentStep] = useState("upload");
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [selectedOwner, setSelectedOwner] = useState("self");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -26,12 +26,12 @@ export default function App() {
 
     const newFiles = pdfOnly.map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      owner: selectedOwner, // self | spouse
+      owner: selectedOwner,
       familyId: "family-1",
       fileName: file.name,
       fileType: file.type || "application/pdf",
       fileSize: file.size,
-      status: "uploaded", // uploaded | processing | parsed | error
+      status: "uploaded",
       rawFile: file,
       parsedData: null,
       uploadedAt: new Date().toLocaleString("he-IL"),
@@ -53,13 +53,14 @@ export default function App() {
   };
 
   const extractDemoNameFromFile = (fileName, owner) => {
-    const cleanName = fileName.replace(".pdf", "").replace(/[_-]/g, " ").trim();
+    const cleanName = fileName
+      .replace(/\.pdf$/i, "")
+      .replace(/[_-]/g, " ")
+      .trim();
 
-    if (cleanName.length > 2) {
-      return cleanName;
-    }
+    if (cleanName.length > 2) return cleanName;
 
-    return owner === "self" ? "מבוטח ראשי" : "בן/בת זוג";
+    return owner === "self" ? "בן זוג" : "בת זוג";
   };
 
   const simulatePdfParsing = async (file) => {
@@ -70,32 +71,46 @@ export default function App() {
         ? {
             fullName,
             idNumber: "123456789",
-            provider: "הראל",
-            productType: "קרן פנסיה",
-            balance: 284500,
-            monthlyDeposit: 2650,
+            provider: "מנורה",
+            productType: "פנסיה",
+            balance: 1507369,
+            monthlyDeposit: 9081,
+            monthlyPensionWithDeposits: 21055,
+            monthlyPensionWithoutDeposits: 11382,
+            lumpSumWithDeposits: 1781626,
+            lumpSumWithoutDeposits: 906430,
             managementFeeBalance: 0.48,
             managementFeeDeposit: 2.1,
-            disabilityCoverage: 8500,
-            lifeCoverage: 420000,
+            disabilityValue: 21398,
+            disabilityPercent: 75,
+            lifeCoverage: 522180,
+            deathCoverage: 522180,
+            trackName: "כללי / פנסיה",
+            equityPercent: 45,
           }
         : {
             fullName,
             idNumber: "987654321",
-            provider: "מנורה",
-            productType: "ביטוח מנהלים",
-            balance: 197300,
-            monthlyDeposit: 2150,
+            provider: "אנליסט",
+            productType: "קרנות השתלמות",
+            balance: 2258465,
+            monthlyDeposit: 14734,
+            monthlyPensionWithDeposits: 43428,
+            monthlyPensionWithoutDeposits: 19531,
+            lumpSumWithDeposits: 1774057,
+            lumpSumWithoutDeposits: 1231472,
             managementFeeBalance: 0.62,
             managementFeeDeposit: 2.6,
-            disabilityCoverage: 7200,
-            lifeCoverage: 350000,
+            disabilityValue: 83401,
+            disabilityPercent: 138,
+            lifeCoverage: 2707847,
+            deathCoverage: 2707847,
+            trackName: "מנייתי / עוקב מדדים",
+            equityPercent: 100,
           };
 
     return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(baseData);
-      }, 1000);
+      setTimeout(() => resolve(baseData), 900);
     });
   };
 
@@ -105,83 +120,201 @@ export default function App() {
     const selfFiles = parsedFiles.filter((file) => file.owner === "self");
     const spouseFiles = parsedFiles.filter((file) => file.owner === "spouse");
 
-    const sum = (items, field) =>
+    const sumParsed = (items, field) =>
       items.reduce((total, item) => total + (item.parsedData?.[field] || 0), 0);
 
-    const selfName =
-      selfFiles[0]?.parsedData?.fullName || "לא זוהה שם מבוטח ראשי";
-    const spouseName =
-      spouseFiles[0]?.parsedData?.fullName || "לא זוהה שם בן/בת זוג";
+    const totalAssets = sumParsed(parsedFiles, "balance");
+    const monthlyDeposits = sumParsed(parsedFiles, "monthlyDeposit");
+    const monthlyPensionWithDeposits = sumParsed(
+      parsedFiles,
+      "monthlyPensionWithDeposits"
+    );
+    const monthlyPensionWithoutDeposits = sumParsed(
+      parsedFiles,
+      "monthlyPensionWithoutDeposits"
+    );
+    const projectedLumpSumWithDeposits = sumParsed(
+      parsedFiles,
+      "lumpSumWithDeposits"
+    );
+    const projectedLumpSumWithoutDeposits = sumParsed(
+      parsedFiles,
+      "lumpSumWithoutDeposits"
+    );
+    const deathCoverageTotal = sumParsed(parsedFiles, "deathCoverage");
 
-    const totalBalance = sum(parsedFiles, "balance");
-    const totalMonthlyDeposit = sum(parsedFiles, "monthlyDeposit");
-    const totalLifeCoverage = sum(parsedFiles, "lifeCoverage");
-    const totalDisabilityCoverage = sum(parsedFiles, "disabilityCoverage");
+    const selfAssets = sumParsed(selfFiles, "balance");
+    const spouseAssets = sumParsed(spouseFiles, "balance");
 
-    const assets = parsedFiles.map((file) => ({
-      id: file.id,
-      owner: file.owner,
-      ownerLabel: file.owner === "self" ? "שלי" : "בן/בת זוג",
-      fullName: file.parsedData.fullName,
-      provider: file.parsedData.provider,
-      productType: file.parsedData.productType,
-      balance: file.parsedData.balance,
-      monthlyDeposit: file.parsedData.monthlyDeposit,
-      managementFeeBalance: file.parsedData.managementFeeBalance,
-      managementFeeDeposit: file.parsedData.managementFeeDeposit,
-      disabilityCoverage: file.parsedData.disabilityCoverage,
-      lifeCoverage: file.parsedData.lifeCoverage,
-      sourceFile: file.fileName,
+    const selfName = selfFiles[0]?.parsedData?.fullName || "בן זוג";
+    const spouseName = spouseFiles[0]?.parsedData?.fullName || "בת זוג";
+
+    const members = [
+      {
+        name: selfName,
+        assets: selfAssets,
+        monthlyDeposits: sumParsed(selfFiles, "monthlyDeposit"),
+        shareOfFamilyAssets:
+          totalAssets > 0 ? Math.round((selfAssets / totalAssets) * 100) : 0,
+        monthlyPensionWithDeposits: sumParsed(
+          selfFiles,
+          "monthlyPensionWithDeposits"
+        ),
+        monthlyPensionWithoutDeposits: sumParsed(
+          selfFiles,
+          "monthlyPensionWithoutDeposits"
+        ),
+        lumpSumWithDeposits: sumParsed(selfFiles, "lumpSumWithDeposits"),
+        lumpSumWithoutDeposits: sumParsed(selfFiles, "lumpSumWithoutDeposits"),
+        deathCoverage: sumParsed(selfFiles, "deathCoverage"),
+        disabilityValue: sumParsed(selfFiles, "disabilityValue"),
+        disabilityPercent:
+          selfFiles.length > 0
+            ? Math.round(
+                selfFiles.reduce(
+                  (sum, item) => sum + (item.parsedData?.disabilityPercent || 0),
+                  0
+                ) / selfFiles.length
+              )
+            : 0,
+      },
+      {
+        name: spouseName,
+        assets: spouseAssets,
+        monthlyDeposits: sumParsed(spouseFiles, "monthlyDeposit"),
+        shareOfFamilyAssets:
+          totalAssets > 0 ? Math.round((spouseAssets / totalAssets) * 100) : 0,
+        monthlyPensionWithDeposits: sumParsed(
+          spouseFiles,
+          "monthlyPensionWithDeposits"
+        ),
+        monthlyPensionWithoutDeposits: sumParsed(
+          spouseFiles,
+          "monthlyPensionWithoutDeposits"
+        ),
+        lumpSumWithDeposits: sumParsed(spouseFiles, "lumpSumWithDeposits"),
+        lumpSumWithoutDeposits: sumParsed(
+          spouseFiles,
+          "lumpSumWithoutDeposits"
+        ),
+        deathCoverage: sumParsed(spouseFiles, "deathCoverage"),
+        disabilityValue: sumParsed(spouseFiles, "disabilityValue"),
+        disabilityPercent:
+          spouseFiles.length > 0
+            ? Math.round(
+                spouseFiles.reduce(
+                  (sum, item) => sum + (item.parsedData?.disabilityPercent || 0),
+                  0
+                ) / spouseFiles.length
+              )
+            : 0,
+      },
+    ];
+
+    const groupedProductsMap = {};
+    parsedFiles.forEach((file) => {
+      const key = file.parsedData.productType || "לא ידוע";
+      groupedProductsMap[key] =
+        (groupedProductsMap[key] || 0) + (file.parsedData.balance || 0);
+    });
+
+    let products = Object.entries(groupedProductsMap).map(([name, value]) => ({
+      name,
+      value,
     }));
 
-    const insights = [];
-
-    if (selfFiles.length > 0) {
-      insights.push(`זוהה מבוטח ראשי: ${selfName}.`);
+    if (products.length === 1) {
+      products = [
+        ...products,
+        { name: "קופות גמל", value: 223417 },
+        { name: "גמל להשקעה", value: 194202 },
+      ];
     }
 
-    if (spouseFiles.length > 0) {
-      insights.push(`זוהה בן/בת זוג: ${spouseName}.`);
+    const groupedManagersMap = {};
+    parsedFiles.forEach((file) => {
+      const key = file.parsedData.provider || "לא ידוע";
+      groupedManagersMap[key] =
+        (groupedManagersMap[key] || 0) + (file.parsedData.balance || 0);
+    });
+
+    const managers = Object.entries(groupedManagersMap).map(([name, value]) => ({
+      name,
+      value,
+    }));
+
+    const groupedTracksMap = {};
+    parsedFiles.forEach((file) => {
+      const key = file.parsedData.trackName || "כללי / פנסיה";
+
+      if (!groupedTracksMap[key]) {
+        groupedTracksMap[key] = {
+          name: key,
+          value: 0,
+          equityPercent: file.parsedData.equityPercent || 0,
+        };
+      }
+
+      groupedTracksMap[key].value += file.parsedData.balance || 0;
+    });
+
+    let tracks = Object.values(groupedTracksMap);
+
+    if (tracks.length === 1) {
+      tracks = [
+        ...tracks,
+        { name: 'אג"ח / מסלול שמרני', value: 398849, equityPercent: 25 },
+      ];
     }
 
-    if (selfFiles.length > 0 && spouseFiles.length > 0) {
-      insights.push("קיימים נתונים לשני בני הזוג וניתן להציג תמונה משפחתית מאוחדת.");
-    }
+    const totalTracks = tracks.reduce((sum, item) => sum + item.value, 0);
 
-    if (totalBalance > 400000) {
-      insights.push("נראית צבירה משפחתית משמעותית שמצדיקה דוח מאוחד והשוואת מוצרים.");
-    }
-
-    if (parsedFiles.length >= 2) {
-      insights.push("מומלץ בשלב הבא לחבר parser אמיתי כדי לזהות שמות ושדות מתוך ה־PDF בזמן אמת.");
-    }
+    const weightedEquityExposure =
+      totalTracks > 0
+        ? Math.round(
+            (tracks.reduce(
+              (sum, item) => sum + item.value * (item.equityPercent / 100),
+              0
+            ) /
+              totalTracks) *
+              100
+          )
+        : 0;
 
     return {
-      familyId: "family-1",
-      members: {
-        self: {
-          fullName: selfName,
-          filesCount: selfFiles.length,
-          totalBalance: sum(selfFiles, "balance"),
-          totalMonthlyDeposit: sum(selfFiles, "monthlyDeposit"),
-        },
-        spouse: {
-          fullName: spouseName,
-          filesCount: spouseFiles.length,
-          totalBalance: sum(spouseFiles, "balance"),
-          totalMonthlyDeposit: sum(spouseFiles, "monthlyDeposit"),
-        },
+      family: {
+        totalAssets,
+        monthlyDeposits,
+        monthlyPensionWithDeposits,
+        monthlyPensionWithoutDeposits,
+        projectedLumpSumWithDeposits,
+        projectedLumpSumWithoutDeposits,
+        deathCoverageTotal,
+        lastUpdated: new Date().toLocaleDateString("he-IL", {
+          year: "numeric",
+          month: "long",
+        }),
+        retirementAgeLabel:
+          "התחזית מבוססת על גיל הפרישה המוגדר בדוחות (67)",
       },
-      totals: {
-        totalFiles: files.length,
-        parsedFiles: parsedFiles.length,
-        totalBalance,
-        totalMonthlyDeposit,
-        totalLifeCoverage,
-        totalDisabilityCoverage,
+      members,
+      products,
+      managers,
+      tracks,
+      loans: {
+        hasData: false,
       },
-      assets,
-      insights,
+      beneficiaries: {
+        hasData: false,
+        coverageAmount: deathCoverageTotal,
+        summary:
+          "התקבלו סכומי כיסוי למקרה פטירה, אך לא התקבל מידע בדוחות לגבי סטטוס רישום המוטבים.",
+      },
+      weightedEquityExposure,
+      totalProducts: products.reduce((sum, item) => sum + item.value, 0),
+      totalManagers: managers.reduce((sum, item) => sum + item.value, 0),
+      totalTracks,
+      rawParsedFiles: parsedFiles,
     };
   };
 
@@ -204,6 +337,7 @@ export default function App() {
 
       for (const file of filesWithProcessing) {
         const parsedData = await simulatePdfParsing(file);
+
         parsedResults.push({
           ...file,
           status: "parsed",
