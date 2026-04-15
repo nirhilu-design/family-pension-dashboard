@@ -438,6 +438,18 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       color: "#627D98",
       lineHeight: 1.7,
     },
+    debugPre: {
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      fontSize: "12px",
+      direction: "rtl",
+      background: "#f8fafc",
+      padding: "16px",
+      borderRadius: "12px",
+      border: "1px solid #E2D1BF",
+      maxHeight: "400px",
+      overflow: "auto",
+    },
   };
 
   return (
@@ -803,6 +815,14 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               </div>
             </section>
           </section>
+
+          <section style={styles.section}>
+            <h2 style={styles.h2}>Debug PDF Text</h2>
+            <pre style={styles.debugPre}>
+              {reportData?.rawParsedFiles?.[0]?.parsedData?.rawTextPreview ||
+                "אין טקסט"}
+            </pre>
+          </section>
         </div>
       </div>
     </>
@@ -818,7 +838,7 @@ function RiskBar({ value, styles }) {
         <div
           style={{
             ...styles.markerLabel,
-            left: `calc(${value}% )`,
+            left: `calc(${value}%)`,
           }}
         >
           {value}%

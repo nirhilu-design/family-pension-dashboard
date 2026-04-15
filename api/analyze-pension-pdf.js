@@ -16,11 +16,9 @@ export default async function handler(req, res) {
     }
 
     const buffer = Buffer.concat(chunks);
-
     const pdfData = await pdf(buffer);
     const text = pdfData.text || "";
 
-    // 🔥 כרגע רק נחזיר טקסט (בדיקה ראשונית)
     return res.status(200).json({
       success: true,
       parsedData: {
@@ -29,14 +27,28 @@ export default async function handler(req, res) {
         productType: "פנסיה",
         balance: 100000,
         monthlyDeposit: 2000,
-        rawTextPreview: text.slice(0, 1000),
+        monthlyPensionWithDeposits: 0,
+        monthlyPensionWithoutDeposits: 0,
+        lumpSumWithDeposits: 0,
+        lumpSumWithoutDeposits: 0,
+        managementFeeBalance: 0,
+        managementFeeDeposit: 0,
+        disabilityValue: 0,
+        disabilityPercent: 0,
+        lifeCoverage: 0,
+        deathCoverage: 0,
+        trackName: "כללי / פנסיה",
+        equityPercent: 45,
+        rawTextPreview: text.slice(0, 4000),
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("PDF parse error:", error);
+
     return res.status(500).json({
       success: false,
       error: "שגיאה בקריאת PDF",
+      details: error.message,
     });
   }
 }
