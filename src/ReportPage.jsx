@@ -1,95 +1,26 @@
 import React from "react";
 
-export default function ReportPage({ onBack, onResetAll }) {
+export default function ReportPage({ reportData, onBack, onResetAll }) {
   const handleExportPdf = () => {
     window.print();
   };
 
-  const family = {
-    totalAssets: 3765834,
-    monthlyDeposits: 23815,
-    monthlyPensionWithDeposits: 64483,
-    monthlyPensionWithoutDeposits: 30913,
-    projectedLumpSumWithDeposits: 3555683,
-    projectedLumpSumWithoutDeposits: 2137902,
-    deathCoverageTotal: 3230027,
-    lastUpdated: "פברואר 2026",
-    retirementAgeLabel: "התחזית מבוססת על גיל הפרישה המוגדר בדוחות (67)",
-  };
-
-  const members = [
-    {
-      name: "בן זוג",
-      assets: 1507369,
-      monthlyDeposits: 9081,
-      shareOfFamilyAssets: 40,
-      monthlyPensionWithDeposits: 21055,
-      monthlyPensionWithoutDeposits: 11382,
-      lumpSumWithDeposits: 1781626,
-      lumpSumWithoutDeposits: 906430,
-      deathCoverage: 522180,
-      disabilityValue: 21398,
-      disabilityPercent: 75,
-    },
-    {
-      name: "בת זוג",
-      assets: 2258465,
-      monthlyDeposits: 14734,
-      shareOfFamilyAssets: 60,
-      monthlyPensionWithDeposits: 43428,
-      monthlyPensionWithoutDeposits: 19531,
-      lumpSumWithDeposits: 1774057,
-      lumpSumWithoutDeposits: 1231472,
-      deathCoverage: 2707847,
-      disabilityValue: 83401,
-      disabilityPercent: 138,
-    },
-  ];
-
-  const products = [
-    { name: "פנסיה", value: 2535800 },
-    { name: "קרנות השתלמות", value: 808415 },
-    { name: "קופות גמל", value: 223417 },
-    { name: "גמל להשקעה", value: 194202 },
-  ];
-
-  const managers = [
-    { name: "מנורה", value: 2787167 },
-    { name: "אנליסט", value: 978667 },
-  ];
-
-  const tracks = [
-    { name: "מנייתי / עוקב מדדים", value: 1009617, equityPercent: 100 },
-    { name: "כללי / פנסיה", value: 2357368, equityPercent: 45 },
-    { name: 'אג"ח / מסלול שמרני', value: 398849, equityPercent: 25 },
-  ];
-
-  const loans = {
-    hasData: false,
-  };
-
-  const beneficiaries = {
-    hasData: false,
-    coverageAmount: 3230027,
-    summary:
-      "התקבלו סכומי כיסוי למקרה פטירה, אך לא התקבל מידע בדוחות לגבי סטטוס רישום המוטבים.",
-  };
-
-  const totalProducts = products.reduce((sum, item) => sum + item.value, 0);
-  const totalManagers = managers.reduce((sum, item) => sum + item.value, 0);
-  const totalTracks = tracks.reduce((sum, item) => sum + item.value, 0);
-
-  const weightedEquityExposure = Math.round(
-    (tracks.reduce(
-      (sum, item) => sum + item.value * (item.equityPercent / 100),
-      0
-    ) /
-      totalTracks) *
-      100
-  );
+  const {
+    family,
+    members,
+    products,
+    managers,
+    tracks,
+    loans,
+    beneficiaries,
+    weightedEquityExposure,
+    totalProducts,
+    totalManagers,
+    totalTracks,
+  } = reportData;
 
   const formatCurrency = (value) =>
-    `₪${Number(value).toLocaleString("en-US")}`;
+    `₪${Number(value || 0).toLocaleString("en-US")}`;
 
   const styles = {
     page: {
@@ -525,10 +456,26 @@ export default function ReportPage({ onBack, onResetAll }) {
       </style>
 
       <div style={styles.page}>
-        <div className="no-print" style={{ maxWidth: "1120px", margin: "0 auto 16px", display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "flex-start" }}>
-          <button onClick={onBack} style={buttonSecondary}>חזרה למסך העלאה</button>
-          <button onClick={onResetAll} style={buttonDanger}>איפוס מלא</button>
-          <button onClick={handleExportPdf} style={buttonPrimary}>ייצוא ל־PDF</button>
+        <div
+          className="no-print"
+          style={{
+            maxWidth: "1120px",
+            margin: "0 auto 16px",
+            display: "flex",
+            gap: "12px",
+            flexWrap: "wrap",
+            justifyContent: "flex-start",
+          }}
+        >
+          <button onClick={onBack} style={buttonSecondary}>
+            חזרה למסך העלאה
+          </button>
+          <button onClick={onResetAll} style={buttonDanger}>
+            איפוס מלא
+          </button>
+          <button onClick={handleExportPdf} style={buttonPrimary}>
+            ייצוא ל־PDF
+          </button>
         </div>
 
         <div style={styles.container}>
@@ -562,22 +509,28 @@ export default function ReportPage({ onBack, onResetAll }) {
           <section style={styles.section}>
             <div style={styles.hero}>
               <div style={styles.heroLabel}>💸 הפקדה חודשית משפחתית</div>
-              <div style={styles.heroValue}>{formatCurrency(family.monthlyDeposits)}</div>
-              <div style={styles.heroSub}>סך ההפקדות החודשיות שנקלטו משני הדוחות</div>
+              <div style={styles.heroValue}>
+                {formatCurrency(family.monthlyDeposits)}
+              </div>
+              <div style={styles.heroSub}>
+                סך ההפקדות החודשיות שנקלטו משני הדוחות
+              </div>
             </div>
           </section>
 
           <section style={styles.section}>
             <h2 style={styles.h2}>תחזית פרישה משפחתית</h2>
             <div style={styles.explanation}>
-              התחזית מציגה את הקצבה והסכום ההוני הצפויים לגיל הפרישה שמופיע בדוחות,
-              עם השוואה בין תרחיש של המשך הפקדות לבין תרחיש ללא הפקדות.
+              התחזית מציגה את הקצבה והסכום ההוני הצפויים לגיל הפרישה שמופיע
+              בדוחות, עם השוואה בין תרחיש של המשך הפקדות לבין תרחיש ללא הפקדות.
             </div>
 
             <div style={styles.grid2}>
               <div style={styles.hero}>
                 <div style={styles.heroLabel}>עם המשך הפקדות</div>
-                <div style={styles.valueDark}>{formatCurrency(family.monthlyPensionWithDeposits)}</div>
+                <div style={styles.valueDark}>
+                  {formatCurrency(family.monthlyPensionWithDeposits)}
+                </div>
                 <div style={styles.subDark}>קצבה חודשית צפויה</div>
 
                 <div style={styles.splitTopDark}>
@@ -590,7 +543,9 @@ export default function ReportPage({ onBack, onResetAll }) {
 
               <div style={styles.lightCard}>
                 <div style={styles.label}>ללא המשך הפקדות</div>
-                <div style={styles.value}>{formatCurrency(family.monthlyPensionWithoutDeposits)}</div>
+                <div style={styles.value}>
+                  {formatCurrency(family.monthlyPensionWithoutDeposits)}
+                </div>
                 <div style={styles.sub}>קצבה חודשית צפויה</div>
 
                 <div style={styles.splitTop}>
@@ -610,7 +565,8 @@ export default function ReportPage({ onBack, onResetAll }) {
           <section style={styles.section}>
             <h2 style={styles.h2}>פירוט לפי בני זוג</h2>
             <div style={styles.explanation}>
-              להלן הנתונים המרכזיים של כל אחד מבני הזוג בנפרד, כדי לאפשר מבט ברור גם ברמה האישית ולא רק ברמה המשפחתית.
+              להלן הנתונים המרכזיים של כל אחד מבני הזוג בנפרד, כדי לאפשר מבט
+              ברור גם ברמה האישית ולא רק ברמה המשפחתית.
             </div>
 
             <div style={styles.grid2}>
@@ -631,7 +587,9 @@ export default function ReportPage({ onBack, onResetAll }) {
 
                   <div style={styles.centerCard}>
                     <div style={styles.centerLabel}>סך צבירה</div>
-                    <div style={styles.centerValue}>{formatCurrency(member.assets)}</div>
+                    <div style={styles.centerValue}>
+                      {formatCurrency(member.assets)}
+                    </div>
                   </div>
 
                   <div style={styles.compareGrid}>
@@ -691,7 +649,8 @@ export default function ReportPage({ onBack, onResetAll }) {
                     <div style={styles.insuranceCard}>
                       <div style={styles.insuranceLabel}>🧍 אכ"ע באחוזים</div>
                       <div style={styles.insuranceValue}>
-                        {formatCurrency(member.disabilityValue)} ({member.disabilityPercent}%)
+                        {formatCurrency(member.disabilityValue)} (
+                        {member.disabilityPercent}%)
                       </div>
                     </div>
                   </div>
@@ -729,7 +688,8 @@ export default function ReportPage({ onBack, onResetAll }) {
             </div>
 
             <div style={styles.explanation}>
-              זהו חישוב ביניים המבוסס על מיפוי משוער של המסלולים הידועים מתוך הדוחות.
+              זהו חישוב ביניים המבוסס על מיפוי משוער של המסלולים הידועים מתוך
+              הדוחות.
             </div>
 
             <RiskBar value={weightedEquityExposure} styles={styles} />
@@ -743,23 +703,31 @@ export default function ReportPage({ onBack, onResetAll }) {
               </div>
 
               <div style={styles.explanation}>
-                מוצגת חלוקה משוערת לפי סוגי מסלולים דומיננטיים שניתן היה להסיק מתוך שמות המוצרים והמסלולים בדוחות.
+                מוצגת חלוקה משוערת לפי סוגי מסלולים דומיננטיים שניתן היה להסיק
+                מתוך שמות המוצרים והמסלולים בדוחות.
               </div>
 
               <div style={styles.trackList}>
                 {tracks.map((track) => {
-                  const portfolioWeight = Math.round((track.value / totalTracks) * 100);
+                  const portfolioWeight =
+                    totalTracks > 0
+                      ? Math.round((track.value / totalTracks) * 100)
+                      : 0;
 
                   return (
                     <div key={track.name} style={styles.trackItem}>
                       <div style={styles.trackTop}>
                         <div>
                           <div style={styles.trackName}>{track.name}</div>
-                          <div style={styles.trackMeta}>{formatCurrency(track.value)}</div>
+                          <div style={styles.trackMeta}>
+                            {formatCurrency(track.value)}
+                          </div>
                         </div>
 
                         <div style={{ textAlign: "left" }}>
-                          <div style={styles.trackName}>{portfolioWeight}% מהתיק</div>
+                          <div style={styles.trackName}>
+                            {portfolioWeight}% מהתיק
+                          </div>
                           <div style={styles.trackMeta}>
                             {track.equityPercent}% מניות במסלול
                           </div>
@@ -791,7 +759,8 @@ export default function ReportPage({ onBack, onResetAll }) {
               </div>
 
               <div style={styles.explanation}>
-                כרגע לא זוהה בדוחות מידע מפורט לגבי הלוואות פעילות על חשבון המוצרים הפנסיוניים.
+                כרגע לא זוהה בדוחות מידע מפורט לגבי הלוואות פעילות על חשבון
+                המוצרים הפנסיוניים.
               </div>
 
               {!loans.hasData && (
@@ -810,7 +779,8 @@ export default function ReportPage({ onBack, onResetAll }) {
               </div>
 
               <div style={styles.explanation}>
-                מצב המוטבים מאפשר להבין האם הכיסוי המשפחתי מעודכן במוצרים הרלוונטיים.
+                מצב המוטבים מאפשר להבין האם הכיסוי המשפחתי מעודכן במוצרים
+                הרלוונטיים.
               </div>
 
               <div style={styles.softCard}>
@@ -827,7 +797,8 @@ export default function ReportPage({ onBack, onResetAll }) {
                   {beneficiaries.summary}
                 </div>
                 <div style={{ ...styles.small, marginTop: "8px" }}>
-                  כיסוי למקרה פטירה: {formatCurrency(beneficiaries.coverageAmount)}
+                  כיסוי למקרה פטירה:{" "}
+                  {formatCurrency(beneficiaries.coverageAmount)}
                 </div>
               </div>
             </section>
@@ -847,7 +818,7 @@ function RiskBar({ value, styles }) {
         <div
           style={{
             ...styles.markerLabel,
-            left: `calc(${value}%)`,
+            left: `calc(${value}% )`,
           }}
         >
           {value}%
@@ -899,8 +870,10 @@ function PieCard({ title, explanation, items, total, styles, formatCurrency }) {
   const colors = ["#00215D", "#355C9A", "#7A92B8", "#E2D1BF", "#FF2756", "#A8B8D8"];
 
   let current = 0;
+  const safeTotal = total || 1;
+
   const segments = items.map((item, index) => {
-    const percent = (item.value / total) * 100;
+    const percent = (item.value / safeTotal) * 100;
     const start = current;
     const end = current + percent;
     current = end;
@@ -965,7 +938,9 @@ function PieCard({ title, explanation, items, total, styles, formatCurrency }) {
                   <span style={{ ...styles.legendDot, background: seg.color }} />
                   <div>
                     <div style={styles.legendName}>{seg.name}</div>
-                    <div style={styles.legendValue}>{formatCurrency(seg.value)}</div>
+                    <div style={styles.legendValue}>
+                      {formatCurrency(seg.value)}
+                    </div>
                   </div>
                 </div>
 
@@ -981,7 +956,14 @@ function PieCard({ title, explanation, items, total, styles, formatCurrency }) {
 
 function ZviranLogo() {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "8px", direction: "ltr" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        direction: "ltr",
+      }}
+    >
       <svg width="34" height="34" viewBox="0 0 42 42" aria-label="zviran logo">
         <circle cx="21" cy="21" r="19" fill="#00215D" />
         <circle
@@ -998,8 +980,12 @@ function ZviranLogo() {
       </svg>
 
       <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-        <div style={{ fontWeight: 700, color: "#00215D", fontSize: "22px" }}>zviran</div>
-        <div style={{ fontSize: "10px", color: "#7B8794" }}>Total Rewards Experts</div>
+        <div style={{ fontWeight: 700, color: "#00215D", fontSize: "22px" }}>
+          zviran
+        </div>
+        <div style={{ fontSize: "10px", color: "#7B8794" }}>
+          Total Rewards Experts
+        </div>
       </div>
     </div>
   );
