@@ -170,9 +170,19 @@ export default function App() {
 
     const groupedProductsMap = {};
     parsedFiles.forEach((file) => {
-      const key = file.parsedData.productType || "לא ידוע";
-      groupedProductsMap[key] =
-        (groupedProductsMap[key] || 0) + (file.parsedData.balance || 0);
+      const extractedProducts = file.parsedData.extractedProducts || [];
+
+      if (extractedProducts.length > 0) {
+        extractedProducts.forEach((product) => {
+          const key = product.name || "לא ידוע";
+          groupedProductsMap[key] =
+            (groupedProductsMap[key] || 0) + (product.value || 0);
+        });
+      } else {
+        const key = file.parsedData.productType || "לא ידוע";
+        groupedProductsMap[key] =
+          (groupedProductsMap[key] || 0) + (file.parsedData.balance || 0);
+      }
     });
 
     let products = Object.entries(groupedProductsMap).map(([name, value]) => ({
