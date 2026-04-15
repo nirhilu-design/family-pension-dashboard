@@ -1,34 +1,56 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 export default function App() {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [selectedOwner, setSelectedOwner] = useState("self");
 
   const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files);
-
+    const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
     const newFiles = files.map((file) => ({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      owner: selectedOwner, // self | spouse
+      owner: selectedOwner,
       fileName: file.name,
       fileType: file.type || "unknown",
       fileSize: file.size,
-      status: "uploaded", // uploaded | processing | parsed | error
-      rawFile: file,
+      status: "uploaded",
       parsedData: null,
       uploadedAt: new Date().toLocaleString("he-IL"),
     }));
 
     setUploadedFiles((prev) => [...prev, ...newFiles]);
-
-    // מאפשר לבחור שוב את אותו קובץ
     event.target.value = "";
   };
 
   const handleDeleteFile = (id) => {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== id));
+  };
+
+  const buildDemoData = (owner, fileName) => {
+    if (owner === "self") {
+      return {
+        personName: "מבוטח ראשי",
+        provider: "הפניקס",
+        productType: fileName.toLowerCase().includes("excel")
+          ? "קרן השתלמות"
+          : "קרן פנסיה",
+        balance: 228400,
+        monthlyDeposit: 2650,
+        riskLevel: "בינוני",
+      };
+    }
+
+    return {
+      personName: "בן/בת זוג",
+      provider: "מגדל",
+      productType: fileName.toLowerCase().includes("excel")
+        ? "קופת גמל"
+        : "ביטוח מנהלים",
+      balance: 171900,
+      monthlyDeposit: 1980,
+      riskLevel: "בינוני-גבוה",
+    };
   };
 
   const handleSimulateAnalysis = (id) => {
@@ -40,115 +62,107 @@ export default function App() {
 
     setTimeout(() => {
       setUploadedFiles((prev) =>
-        prev.map((file) =>
-          file.id === id
-            ? {
-                ...file,
-                status: "parsed",
-                parsedData: {
-                  provider: "הראל",
-                  productType: "קרן פנסיה",
-                  balance: 125000,
-                  monthlyDeposit: 2400,
-                },
-              }
-            : file
-        )
+        prev.map((file) => {
+          if (file.id !== id) return file;
+
+          return {
+            ...file,
+            status: "parsed",
+            parsedData: buildDemoData(file.owner, file.fileName),
+          };
+        })
       );
-    }, 1500);
+    }, 1200);
   };
 
-  const getOwnerLabel = (owner) => {
-    if (owner === "self") return "שלי";
-    if (owner === "spouse") return "בן/בת זוג";
-    return "לא ידוע";
-  };
+  const familyReport = useMemo(() => {
+    const parsed = uploadedFiles.filter((f) => f.parsedData);
 
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case "uploaded":
-        return "הועלה";
-      case "processing":
-        return "בעיבוד";
-      case "parsed":
-        return "נותח";
-      case "error":
-        return "שגיאה";
-      default:
-        return "לא ידוע";
+    const selfItems = parsed.filter((f) => f.owner === "self");
+    const spouseItems = parsed.filter((f) => f.owner === "spouse");
+
+    const sumBalance = (items) =>
+      items.reduce((sum, item) => sum + (item.parsedData?.balance || 0), 0);
+
+    const sumDeposit = (items) =>
+      items.reduce((sum, item) => sum + (item.parsedData?.monthlyDeposit || 0), 0);
+
+    const totalBalance = sumBalance(parsed);
+    const totalMonthlyDeposit = sumDeposit(parsed);
+
+    const insights = [];
+    if (totalBalance > 0) {
+      insights.push("נבנה בסיס ראשוני של תמונה פנסיונית משפחתית.");
     }
-  };
+    if (selfItems.length > 0 && spouseItems.length === 0) {
+      insights.push("כרגע קיימים נתונים רק עבור המבוטח הראשי.");
+    }
+    if (spouseItems.length > 0 && selfItems.length === 0) {
+      insights.push("כרגע קיימים נתונים רק עבור בן/בת הזוג.");
+    }
+    if (selfItems.length > 0 && spouseItems.length > 0) {
+      insights.push("קיימים נתונים לשני בני הזוג ואפשר להתקדם לדוח מאוחד.");
+    }
+    if (parsed.length >= 2) {
+      insights.push("השלב הבא המומלץ: חיבור parsing אמיתי ל־Excel לפני PDF.");
+    }
 
-  const totalFiles = uploadedFiles.length;
-  const selfFiles = uploadedFiles.filter((file) => file.owner === "self").length;
-  const spouseFiles = uploadedFiles.filter((file) => file.owner === "spouse").length;
-  const parsedFiles = uploadedFiles.filter((file) => file.status === "parsed").length;
+    return {
+      totalFiles: uploadedFiles.length,
+      parsedFiles: parsed.length,
+      totalBalance,
+      totalMonthlyDeposit,
+      selfBalance: sumBalance(selfItems),
+      spouseBalance: sumBalance(spouseItems),
+      selfDeposit: sumDeposit(selfItems),
+      spouseDeposit: sumDeposit(spouseItems),
+      parsed,
+      insights,
+    };
+  }, [uploadedFiles]);
+
+  const getOwnerLabel = (owner) => (owner === "self" ? "שלי" : "בן/בת זוג");
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "#f5f7fb",
+        background: "#f4f7fb",
         padding: "30px",
         fontFamily: "Arial, sans-serif",
         direction: "rtl",
       }}
     >
-      <div
-        style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-        }}
-      >
-        <h1 style={{ marginBottom: "10px", color: "#1f2937" }}>
-          דשבורד פנסיוני משפחתי
+      <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+        <h1 style={{ marginBottom: "8px", color: "#0f172a" }}>
+          דוח פנסיוני משפחתי מאוחד
         </h1>
-
-        <p style={{ marginBottom: "30px", color: "#6b7280" }}>
-          העלאת מסמכים פנסיוניים, שיוך לבני המשפחה והכנה לניתוח אוטומטי
+        <p style={{ marginBottom: "28px", color: "#64748b" }}>
+          העלאת מסמכים, שיוך לבני המשפחה, ניתוח דמה ותצוגת דוח מאוחד
         </p>
 
-        {/* אזור תקציר */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: "15px",
-            marginBottom: "30px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: "16px",
+            marginBottom: "28px",
           }}
         >
-          <div style={cardStyle}>
-            <h3 style={cardTitleStyle}>סה״כ קבצים</h3>
-            <p style={cardValueStyle}>{totalFiles}</p>
-          </div>
-
-          <div style={cardStyle}>
-            <h3 style={cardTitleStyle}>קבצים שלי</h3>
-            <p style={cardValueStyle}>{selfFiles}</p>
-          </div>
-
-          <div style={cardStyle}>
-            <h3 style={cardTitleStyle}>קבצי בן/בת זוג</h3>
-            <p style={cardValueStyle}>{spouseFiles}</p>
-          </div>
-
-          <div style={cardStyle}>
-            <h3 style={cardTitleStyle}>קבצים שנותחו</h3>
-            <p style={cardValueStyle}>{parsedFiles}</p>
-          </div>
+          <Card title='סה"כ קבצים' value={familyReport.totalFiles} />
+          <Card title="קבצים שנותחו" value={familyReport.parsedFiles} />
+          <Card
+            title="צבירה משפחתית"
+            value={`${familyReport.totalBalance.toLocaleString("he-IL")} ₪`}
+          />
+          <Card
+            title="הפקדה חודשית משפחתית"
+            value={`${familyReport.totalMonthlyDeposit.toLocaleString("he-IL")} ₪`}
+          />
         </div>
 
-        {/* אזור העלאה */}
-        <div
-          style={{
-            background: "#ffffff",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
-            marginBottom: "30px",
-          }}
-        >
-          <h2 style={{ marginTop: 0, color: "#111827" }}>העלאת קבצים</h2>
+        <div style={panelStyle}>
+          <h2 style={panelTitle}>העלאת קבצים</h2>
 
           <div
             style={{
@@ -156,23 +170,17 @@ export default function App() {
               gap: "12px",
               flexWrap: "wrap",
               alignItems: "center",
-              marginBottom: "20px",
+              marginBottom: "16px",
             }}
           >
-            <label style={{ fontWeight: "bold", color: "#374151" }}>
+            <label style={{ fontWeight: "bold", color: "#334155" }}>
               הקבצים שייכים ל:
             </label>
 
             <select
               value={selectedOwner}
               onChange={(e) => setSelectedOwner(e.target.value)}
-              style={{
-                padding: "10px 14px",
-                borderRadius: "10px",
-                border: "1px solid #d1d5db",
-                background: "#fff",
-                minWidth: "180px",
-              }}
+              style={selectStyle}
             >
               <option value="self">שלי</option>
               <option value="spouse">בן/בת זוג</option>
@@ -183,190 +191,272 @@ export default function App() {
               multiple
               accept=".json,.pdf,.xls,.xlsx"
               onChange={handleFileUpload}
-              style={{
-                padding: "10px",
-                border: "1px solid #d1d5db",
-                borderRadius: "10px",
-                background: "#fff",
-              }}
+              style={inputStyle}
             />
           </div>
 
-          <p style={{ color: "#6b7280", marginBottom: 0 }}>
-            כרגע המערכת שומרת את הקבצים ומדמה ניתוח. בשלב הבא נחבר backend
-            לניתוח אמיתי של PDF / Excel.
+          <p style={{ color: "#64748b", margin: 0 }}>
+            זה דמו מוצרי: אחרי “ניתוח דמו” יוצג דוח משפחתי ראשוני.
           </p>
         </div>
 
-        {/* רשימת קבצים */}
         <div
           style={{
-            background: "#ffffff",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+            display: "grid",
+            gridTemplateColumns: "1.1fr 0.9fr",
+            gap: "20px",
+            alignItems: "start",
           }}
         >
-          <h2 style={{ marginTop: 0, color: "#111827" }}>רשימת קבצים</h2>
+          <div style={panelStyle}>
+            <h2 style={panelTitle}>רשימת קבצים</h2>
 
-          {uploadedFiles.length === 0 ? (
-            <p style={{ color: "#6b7280" }}>עדיין לא הועלו קבצים.</p>
-          ) : (
-            <div style={{ display: "grid", gap: "16px" }}>
-              {uploadedFiles.map((file) => (
-                <div
-                  key={file.id}
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "14px",
-                    padding: "18px",
-                    background: "#fafafa",
-                  }}
-                >
+            {uploadedFiles.length === 0 ? (
+              <p style={{ color: "#64748b" }}>עדיין לא הועלו קבצים.</p>
+            ) : (
+              <div style={{ display: "grid", gap: "14px" }}>
+                {uploadedFiles.map((file) => (
                   <div
+                    key={file.id}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "12px",
-                      flexWrap: "wrap",
-                      marginBottom: "10px",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "14px",
+                      background: "#f8fafc",
+                      padding: "16px",
                     }}
                   >
-                    <div>
-                      <h3
-                        style={{
-                          margin: "0 0 8px 0",
-                          color: "#111827",
-                          fontSize: "18px",
-                        }}
-                      >
-                        {file.fileName}
-                      </h3>
-
-                      <p style={infoLineStyle}>
-                        <strong>שייך ל:</strong> {getOwnerLabel(file.owner)}
-                      </p>
-                      <p style={infoLineStyle}>
-                        <strong>סוג קובץ:</strong> {file.fileType}
-                      </p>
-                      <p style={infoLineStyle}>
-                        <strong>גודל:</strong>{" "}
-                        {(file.fileSize / 1024).toFixed(1)} KB
-                      </p>
-                      <p style={infoLineStyle}>
-                        <strong>הועלה ב:</strong> {file.uploadedAt}
-                      </p>
-                      <p style={infoLineStyle}>
-                        <strong>סטטוס:</strong> {getStatusLabel(file.status)}
-                      </p>
-                    </div>
-
                     <div
                       style={{
                         display: "flex",
-                        flexDirection: "column",
-                        gap: "10px",
-                        minWidth: "160px",
+                        justifyContent: "space-between",
+                        gap: "14px",
+                        flexWrap: "wrap",
                       }}
                     >
-                      <button
-                        onClick={() => handleSimulateAnalysis(file.id)}
-                        disabled={file.status === "processing"}
-                        style={{
-                          padding: "10px 14px",
-                          borderRadius: "10px",
-                          border: "none",
-                          background:
-                            file.status === "processing" ? "#9ca3af" : "#2563eb",
-                          color: "#fff",
-                          cursor:
-                            file.status === "processing" ? "not-allowed" : "pointer",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {file.status === "processing"
-                          ? "מעבד..."
-                          : "ניתוח לדוגמה"}
-                      </button>
+                      <div>
+                        <h3 style={{ margin: "0 0 10px 0", color: "#0f172a" }}>
+                          {file.fileName}
+                        </h3>
+                        <p style={lineStyle}>
+                          <strong>שייך ל:</strong> {getOwnerLabel(file.owner)}
+                        </p>
+                        <p style={lineStyle}>
+                          <strong>סטטוס:</strong>{" "}
+                          {file.status === "uploaded"
+                            ? "הועלה"
+                            : file.status === "processing"
+                            ? "בעיבוד"
+                            : "נותח"}
+                        </p>
+                        <p style={lineStyle}>
+                          <strong>הועלה ב:</strong> {file.uploadedAt}
+                        </p>
 
-                      <button
-                        onClick={() => handleDeleteFile(file.id)}
-                        style={{
-                          padding: "10px 14px",
-                          borderRadius: "10px",
-                          border: "1px solid #ef4444",
-                          background: "#fff",
-                          color: "#ef4444",
-                          cursor: "pointer",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        מחק קובץ
-                      </button>
+                        {file.parsedData && (
+                          <div
+                            style={{
+                              marginTop: "12px",
+                              background: "#eef6ff",
+                              border: "1px solid #bfdbfe",
+                              padding: "12px",
+                              borderRadius: "10px",
+                            }}
+                          >
+                            <p style={lineStyle}>
+                              <strong>מוצר:</strong> {file.parsedData.productType}
+                            </p>
+                            <p style={lineStyle}>
+                              <strong>גוף מנהל:</strong> {file.parsedData.provider}
+                            </p>
+                            <p style={lineStyle}>
+                              <strong>צבירה:</strong>{" "}
+                              {file.parsedData.balance.toLocaleString("he-IL")} ₪
+                            </p>
+                            <p style={lineStyle}>
+                              <strong>הפקדה חודשית:</strong>{" "}
+                              {file.parsedData.monthlyDeposit.toLocaleString("he-IL")} ₪
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        <button
+                          onClick={() => handleSimulateAnalysis(file.id)}
+                          disabled={file.status === "processing"}
+                          style={{
+                            ...primaryBtn,
+                            opacity: file.status === "processing" ? 0.7 : 1,
+                            cursor: file.status === "processing" ? "not-allowed" : "pointer",
+                          }}
+                        >
+                          {file.status === "processing" ? "מעבד..." : "ניתוח דמו"}
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteFile(file.id)}
+                          style={dangerBtn}
+                        >
+                          מחק
+                        </button>
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-                  {file.parsedData && (
+          <div style={panelStyle}>
+            <h2 style={panelTitle}>דוח משפחתי ראשוני</h2>
+
+            {familyReport.parsedFiles === 0 ? (
+              <p style={{ color: "#64748b" }}>
+                עדיין אין נתונים מנותחים. העלה קבצים ולחץ על "ניתוח דמו".
+              </p>
+            ) : (
+              <>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "12px",
+                    marginBottom: "18px",
+                  }}
+                >
+                  <MiniCard
+                    title="צבירה שלי"
+                    value={`${familyReport.selfBalance.toLocaleString("he-IL")} ₪`}
+                  />
+                  <MiniCard
+                    title="צבירה בן/בת זוג"
+                    value={`${familyReport.spouseBalance.toLocaleString("he-IL")} ₪`}
+                  />
+                  <MiniCard
+                    title="הפקדה שלי"
+                    value={`${familyReport.selfDeposit.toLocaleString("he-IL")} ₪`}
+                  />
+                  <MiniCard
+                    title="הפקדה בן/בת זוג"
+                    value={`${familyReport.spouseDeposit.toLocaleString("he-IL")} ₪`}
+                  />
+                </div>
+
+                <h3 style={{ color: "#0f172a", marginBottom: "10px" }}>תובנות ראשוניות</h3>
+                <div style={{ display: "grid", gap: "10px" }}>
+                  {familyReport.insights.map((item, index) => (
                     <div
+                      key={index}
                       style={{
-                        marginTop: "14px",
-                        padding: "14px",
-                        background: "#eef6ff",
+                        padding: "12px 14px",
                         borderRadius: "12px",
-                        border: "1px solid #bfdbfe",
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        color: "#334155",
                       }}
                     >
-                      <h4 style={{ marginTop: 0, color: "#1d4ed8" }}>
-                        נתונים שנותחו (דמו)
-                      </h4>
-
-                      <p style={infoLineStyle}>
-                        <strong>גוף מנהל:</strong> {file.parsedData.provider}
-                      </p>
-                      <p style={infoLineStyle}>
-                        <strong>סוג מוצר:</strong> {file.parsedData.productType}
-                      </p>
-                      <p style={infoLineStyle}>
-                        <strong>צבירה:</strong>{" "}
-                        {file.parsedData.balance.toLocaleString("he-IL")} ₪
-                      </p>
-                      <p style={infoLineStyle}>
-                        <strong>הפקדה חודשית:</strong>{" "}
-                        {file.parsedData.monthlyDeposit.toLocaleString("he-IL")} ₪
-                      </p>
+                      {item}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-const cardStyle = {
-  background: "#ffffff",
-  borderRadius: "16px",
-  padding: "20px",
-  boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+function Card({ title, value }) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: "18px",
+        padding: "22px",
+        boxShadow: "0 6px 20px rgba(15,23,42,0.06)",
+      }}
+    >
+      <div style={{ color: "#64748b", fontWeight: "bold", marginBottom: "12px" }}>
+        {title}
+      </div>
+      <div style={{ fontSize: "32px", fontWeight: "bold", color: "#0f172a" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function MiniCard({ title, value }) {
+  return (
+    <div
+      style={{
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderRadius: "14px",
+        padding: "14px",
+      }}
+    >
+      <div style={{ color: "#64748b", marginBottom: "8px", fontWeight: "bold" }}>
+        {title}
+      </div>
+      <div style={{ color: "#0f172a", fontSize: "22px", fontWeight: "bold" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+const panelStyle = {
+  background: "#fff",
+  borderRadius: "20px",
+  padding: "24px",
+  boxShadow: "0 6px 20px rgba(15,23,42,0.06)",
+  marginBottom: "28px",
 };
 
-const cardTitleStyle = {
-  margin: "0 0 10px 0",
-  fontSize: "15px",
-  color: "#6b7280",
+const panelTitle = {
+  marginTop: 0,
+  marginBottom: "18px",
+  color: "#0f172a",
 };
 
-const cardValueStyle = {
-  margin: 0,
-  fontSize: "28px",
-  fontWeight: "bold",
-  color: "#111827",
+const inputStyle = {
+  padding: "10px",
+  border: "1px solid #cbd5e1",
+  borderRadius: "10px",
+  background: "#fff",
 };
 
-const infoLineStyle = {
+const selectStyle = {
+  padding: "10px 14px",
+  border: "1px solid #cbd5e1",
+  borderRadius: "10px",
+  background: "#fff",
+  minWidth: "170px",
+};
+
+const lineStyle = {
   margin: "4px 0",
-  color: "#374151",
+  color: "#334155",
+};
+
+const primaryBtn = {
+  padding: "10px 14px",
+  borderRadius: "10px",
+  border: "none",
+  background: "#2563eb",
+  color: "#fff",
+  fontWeight: "bold",
+};
+
+const dangerBtn = {
+  padding: "10px 14px",
+  borderRadius: "10px",
+  border: "1px solid #ef4444",
+  background: "#fff",
+  color: "#ef4444",
+  fontWeight: "bold",
+  cursor: "pointer",
 };
