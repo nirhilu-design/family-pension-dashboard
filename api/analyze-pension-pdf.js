@@ -7,55 +7,60 @@ function cleanText(text) {
     .trim();
 }
 
-function parseMoney(value) {
-  if (!value) return 0;
-  const cleaned = value.replace(/,/g, "").replace(/[^\d]/g, "");
-  return Number(cleaned || 0);
+function parseMoney(str) {
+  if (!str) return 0;
+  return Number(str.replace(/,/g, "").replace(/[^\d]/g, ""));
 }
 
-function findFirstMoney(text, patterns) {
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match && match[1]) {
-      return parseMoney(match[1]);
-    }
-  }
-  return 0;
+function extractAllNumbers(text) {
+  return [...text.matchAll(/([\d,]{3,})/g)].map((m) => ({
+    value: parseMoney(m[1]),
+    index: m.index,
+  }));
 }
 
-function extractSummaryFromText(text) {
-  const normalized = cleanText(text);
+function findClosestKeyword(text, index) {
+  const window = text.slice(Math.max(0, index - 40), index + 40);
 
-  const totalAssets = findFirstMoney(normalized, [
-    /פנסיוני\s+מסלקה\s+([\d,]+)\s*₪?\s*צברת/i,
-    /מסלקה\s+([\d,]+)\s*₪?\s*צברת/i,
-    /צברת.*?([\d,]+)\s*₪/i,
-  ]);
+  if (/פנסיה/.test(window)) return "פנסיה";
+  if (/גמל/.test(window)) return "קופות גמל";
+  if (/השתלמות/.test(window)) return "קרנות השתלמות";
 
-  const pensionValue = findFirstMoney(normalized, [
-    /מקיפה\s+חדשה\s+פנסיה\s+([\d,]+)\s*₪/i,
-    /פנסיה\s+([\d,]+)\s*₪/i,
-  ]);
+  return null;
+}
 
-  const gemelValue = findFirstMoney(normalized, [
-    /גמל\s+([\d,]+)\s*₪/i,
-  ]);
+function extractProducts(text) {
+  const numbers = extractAllNumbers(text);
 
-  const hishtalmutValue = findFirstMoney(normalized, [
-    /השתלמות\s+([\d,]+)\s*₪/i,
-  ]);
-
-  const otherProducts = [
-    { name: "פנסיה", value: pensionValue },
-    { name: "קופות גמל", value: gemelValue },
-    { name: "קרנות השתלמות", value: hishtalmutValue },
-  ].filter((item) => item.value > 0);
-
-  return {
-    totalAssets,
-    products: otherProducts,
-    rawTextPreview: normalized.slice(0, 4000),
+  const result = {
+    "פנסיה": 0,
+    "קופות גמל": 0,
+    "קרנות השתלמות": 0,
   };
+
+  numbers.forEach((num) => {
+    const type = findClosestKeyword(text, num.index);
+
+    if (type && num.value > 1000) {
+      result[type] += num.value;
+    }
+  });
+
+  return Object.entries(result)
+    .filter(([_, v]) => v > 0)
+    .map(([name, value]) => ({ name, value }));
+}
+
+function extractTotal(text) {
+  const match = text.match(/([\d,]{5,})\s*₪?\s*צברת/);
+
+  if (match) {
+    return parseMoney(match[1]);
+  }
+
+  // fallback - הכי גדול במסמך
+  const numbers = extractAllNumbers(text).map((n) => n.value);
+  return Math.max(...numbers, 0);
 }
 
 export default async function handler(req, res) {
@@ -68,50 +73,37 @@ export default async function handler(req, res) {
 
   try {
     const chunks = [];
-
     for await (const chunk of req) {
       chunks.push(chunk);
     }
 
     const buffer = Buffer.concat(chunks);
     const pdfData = await pdf(buffer);
-    const text = pdfData.text || "";
+    const text = cleanText(pdfData.text || "");
 
-    const summary = extractSummaryFromText(text);
-
-    const parsedData = {
-      fullName: "נבדק מתוך PDF",
-      provider: "מסלקה פנסיונית",
-      productType: "פנסיה",
-      balance: summary.totalAssets || 0,
-      monthlyDeposit: 0,
-      monthlyPensionWithDeposits: 0,
-      monthlyPensionWithoutDeposits: 0,
-      lumpSumWithDeposits: 0,
-      lumpSumWithoutDeposits: 0,
-      managementFeeBalance: 0,
-      managementFeeDeposit: 0,
-      disabilityValue: 0,
-      disabilityPercent: 0,
-      lifeCoverage: 0,
-      deathCoverage: 0,
-      trackName: "כללי / פנסיה",
-      equityPercent: 45,
-      extractedProducts: summary.products,
-      rawTextPreview: summary.rawTextPreview,
-    };
+    const products = extractProducts(text);
+    const totalAssets = extractTotal(text);
 
     return res.status(200).json({
       success: true,
-      parsedData,
+      parsedData: {
+        fullName: "מזוהה מהדוח",
+        provider: "מסלקה פנסיונית",
+        productType: "פנסיה",
+        balance: totalAssets,
+        monthlyDeposit: 0,
+        extractedProducts: products,
+        trackName: "כללי",
+        equityPercent: 45,
+        rawTextPreview: text.slice(0, 4000),
+      },
     });
   } catch (error) {
-    console.error("PDF parse error:", error);
+    console.error(error);
 
     return res.status(500).json({
       success: false,
       error: "שגיאה בקריאת PDF",
-      details: error.message,
     });
   }
 }
