@@ -2,6 +2,19 @@ import React, { useMemo, useState } from "react";
 import UploadPage from "./UploadPage";
 import ReportPage from "./ReportPage";
 
+function arrayBufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
 export default function App() {
   const [currentStep, setCurrentStep] = useState("upload");
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -53,13 +66,19 @@ export default function App() {
   };
 
   const analyzePdfViaApi = async (file) => {
-    const formData = new FormData();
-    formData.append("file", file.rawFile);
-    formData.append("owner", file.owner);
+    const arrayBuffer = await file.rawFile.arrayBuffer();
+    const fileBase64 = arrayBufferToBase64(arrayBuffer);
 
     const response = await fetch("/api/analyze-pension-pdf", {
       method: "POST",
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        owner: file.owner,
+        fileName: file.fileName,
+        fileBase64,
+      }),
     });
 
     const data = await response.json();
@@ -185,18 +204,10 @@ export default function App() {
       }
     });
 
-    let products = Object.entries(groupedProductsMap).map(([name, value]) => ({
+    const products = Object.entries(groupedProductsMap).map(([name, value]) => ({
       name,
       value,
     }));
-
-    if (products.length === 1) {
-      products = [
-        ...products,
-        { name: "קופות גמל", value: 223417 },
-        { name: "גמל להשקעה", value: 194202 },
-      ];
-    }
 
     const groupedManagersMap = {};
     parsedFiles.forEach((file) => {
@@ -225,15 +236,7 @@ export default function App() {
       groupedTracksMap[key].value += file.parsedData.balance || 0;
     });
 
-    let tracks = Object.values(groupedTracksMap);
-
-    if (tracks.length === 1) {
-      tracks = [
-        ...tracks,
-        { name: 'אג"ח / מסלול שמרני', value: 398849, equityPercent: 25 },
-      ];
-    }
-
+    const tracks = Object.values(groupedTracksMap);
     const totalTracks = tracks.reduce((sum, item) => sum + item.value, 0);
 
     const weightedEquityExposure =
@@ -269,7 +272,7 @@ export default function App() {
       managers,
       tracks,
       loans: {
-        hasData: false,
+        hasData: parsedFiles.some((file) => file.parsedData?.hasLoans),
       },
       beneficiaries: {
         hasData: false,
