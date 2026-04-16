@@ -1,8 +1,15 @@
 // src/ReportPage.jsx
 
-import React from "react";
+import React, { useState } from "react";
 
 export default function ReportPage({ reportData, onBack, onResetAll }) {
+  const [recommendations, setRecommendations] = useState(
+    `1. מומלץ לבחון את הפער בין הקצבה הצפויה עם המשך הפקדות לבין ללא המשך הפקדות.
+2. מומלץ לבדוק האם יש ריכוז יתר במוצרים או בגופים מנהלים מסוימים.
+3. מומלץ לעבור על הכיסויים הביטוחיים ולוודא שהם מתאימים לצרכים המשפחתיים.
+4. מומלץ לבחון את מדיניות ההשקעה ורמת החשיפה למניות בהתאם לפרופיל הסיכון הרצוי.`
+  );
+
   if (!reportData || !reportData.family) {
     return <div style={{ padding: "40px", direction: "rtl" }}>טוען נתונים...</div>;
   }
@@ -90,6 +97,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       alignItems: "center",
       marginBottom: "12px",
       gap: "12px",
+      flexWrap: "wrap",
     },
     small: {
       fontSize: "13px",
@@ -441,17 +449,25 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       color: "#627D98",
       lineHeight: 1.7,
     },
-    debugPre: {
-      whiteSpace: "pre-wrap",
-      wordBreak: "break-word",
-      fontSize: "12px",
-      direction: "rtl",
-      background: "#f8fafc",
-      padding: "16px",
-      borderRadius: "12px",
+    recommendationsWrap: {
+      background: "#fff",
       border: "1px solid #E2D1BF",
-      maxHeight: "400px",
-      overflow: "auto",
+      borderRadius: "18px",
+      padding: "18px",
+    },
+    recommendationsText: {
+      width: "100%",
+      minHeight: "180px",
+      resize: "vertical",
+      border: "1px solid #D9C8B5",
+      borderRadius: "14px",
+      padding: "16px",
+      fontSize: "15px",
+      lineHeight: 1.8,
+      color: "#102A43",
+      boxSizing: "border-box",
+      fontFamily: "Arial, sans-serif",
+      background: "#fffdfb",
     },
   };
 
@@ -496,8 +512,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
         <div style={styles.container}>
           <section style={styles.section}>
             <div style={styles.topLine}>
-              <ZviranLogo />
               <div style={styles.small}>מעודכן ל{family.lastUpdated}</div>
+              <ZviranLogo />
             </div>
 
             <div style={{ ...styles.small, ...styles.centerText }}>
@@ -507,9 +523,9 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             <h1 style={styles.h1}>דוח פנסיוני משפחתי מאוחד</h1>
 
             <p style={styles.subtitle}>
-              ריכזנו עבורך תמונת מצב משפחתית אחת הכוללת את כלל הנכסים הפנסיוניים,
-              הקצבה הצפויה, הסכומים ההוניים, הפיזור בין מוצרים וגופים מנהלים,
-              והמידע הביטוחי המרכזי מתוך שני הדוחות.
+              ריכזנו עבורך תמונת מצב משפחתית אחת הכוללת את כלל הנכסים
+              הפנסיוניים, הקצבה הצפויה, הסכומים ההוניים, הפיזור בין מוצרים
+              וגופים מנהלים, והמידע הביטוחי המרכזי מתוך שני הדוחות.
             </p>
           </section>
 
@@ -536,8 +552,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
           <section style={styles.section}>
             <h2 style={styles.h2}>תחזית פרישה משפחתית</h2>
             <div style={styles.explanation}>
-              התחזית מציגה את הקצבה והסכום ההוני הצפויים לגיל הפרישה שמופיע
-              בדוחות, עם השוואה בין תרחיש של המשך הפקדות לבין תרחיש ללא הפקדות.
+              התחזית מציגה את הקצבה והסכום ההוני הצפויים לגיל הפרישה, עם השוואה
+              בין תרחיש של המשך הפקדות לבין תרחיש ללא המשך הפקדות.
             </div>
 
             <div style={styles.grid2}>
@@ -819,18 +835,26 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
           </section>
 
           <section style={styles.section}>
-            <h2 style={styles.h2}>Debug XML Preview</h2>
-            <pre style={styles.debugPre}>
-              {reportData?.rawParsedFiles?.[0]?.parsedData?.rawTextPreview ||
-                "אין טקסט"}
-            </pre>
-          </section>
+            <div style={styles.sectionHeader}>
+              <div style={styles.titleWithIcon}>
+                <span>📝</span>
+                <h2 style={styles.h2}>המלצות אישיות</h2>
+              </div>
+            </div>
 
-          <section style={styles.section}>
-            <h2 style={styles.h2}>Debug Parsed Data</h2>
-            <pre style={styles.debugPre}>
-              {JSON.stringify(reportData?.rawParsedFiles || [], null, 2)}
-            </pre>
+            <div style={styles.explanation}>
+              כאן אפשר להוסיף תובנות, מסקנות, פעולות מומלצות, נקודות לשיחה עם
+              הלקוח, או כל מלל חופשי שתרצה להציג כחלק מהדוח.
+            </div>
+
+            <div style={styles.recommendationsWrap}>
+              <textarea
+                value={recommendations}
+                onChange={(e) => setRecommendations(e.target.value)}
+                style={styles.recommendationsText}
+                placeholder="כתוב כאן המלצות אישיות..."
+              />
+            </div>
           </section>
         </div>
       </div>
@@ -989,30 +1013,65 @@ function ZviranLogo() {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "8px",
+        gap: "12px",
         direction: "ltr",
       }}
     >
-      <svg width="34" height="34" viewBox="0 0 42 42" aria-label="zviran logo">
-        <circle cx="21" cy="21" r="19" fill="#00215D" />
-        <circle
-          cx="21"
-          cy="21"
-          r="17"
-          fill="#00215D"
-          stroke="#ffffff"
-          strokeWidth="1.2"
-          opacity="0.95"
+      <div
+        style={{
+          width: "58px",
+          height: "58px",
+          borderRadius: "50%",
+          background: "#0A2668",
+          position: "relative",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            width: "26px",
+            height: "8px",
+            background: "#ff4b78",
+            borderRadius: "999px",
+            top: "16px",
+            left: "17px",
+            transform: "rotate(-35deg)",
+          }}
         />
-        <path d="M12 14h18l-15 14h15v4H12l15-14H12z" fill="#ffffff" />
-        <path d="M12 14h18l-7 6h-8z" fill="#FF2756" opacity="0.95" />
-      </svg>
+        <div
+          style={{
+            position: "absolute",
+            width: "26px",
+            height: "8px",
+            background: "#ffffff",
+            borderRadius: "999px",
+            top: "25px",
+            left: "12px",
+            transform: "rotate(-35deg)",
+          }}
+        />
+      </div>
 
-      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-        <div style={{ fontWeight: 700, color: "#00215D", fontSize: "22px" }}>
+      <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
+        <div
+          style={{
+            fontSize: "44px",
+            fontWeight: 300,
+            letterSpacing: "-1px",
+            color: "#0A2668",
+          }}
+        >
           zviran
         </div>
-        <div style={{ fontSize: "10px", color: "#7B8794" }}>
+        <div
+          style={{
+            marginTop: "6px",
+            fontSize: "14px",
+            color: "#6B7A99",
+            letterSpacing: "0.4px",
+          }}
+        >
           Total Rewards Experts
         </div>
       </div>
