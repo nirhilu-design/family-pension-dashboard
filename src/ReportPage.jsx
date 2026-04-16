@@ -45,7 +45,9 @@ function MemberCard({ file }) {
           <div style={{ fontSize: 28, fontWeight: 800, color: "#0d2c6c" }}>
             {file.member.fullName || "ללא שם"}
           </div>
-          <div style={{ color: "#6b7280", marginTop: 6 }}>ת.ז: {file.member.id || "-"}</div>
+          <div style={{ color: "#6b7280", marginTop: 6 }}>
+            ת.ז: {file.member.id || "-"}
+          </div>
         </div>
 
         <div
@@ -76,19 +78,23 @@ function MemberCard({ file }) {
 
         <div style={miniCard}>
           <div style={miniTitle}>קצבה חודשית צפויה</div>
-          <div style={miniValue}>{formatMoney(file.summary.save.projectedMonthlyPension)}</div>
+          <div style={miniValue}>
+            {formatMoney(file.summary.save.projectedMonthlyPension)}
+          </div>
         </div>
 
         <div style={miniCard}>
-          <div style={miniTitle}>סכום הוני צפוי</div>
+          <div style={miniTitle}>סכום חד הוני לפרישה</div>
           <div style={miniValue}>
             {formatMoney(file.summary.save.projectedRetirementBalance)}
           </div>
         </div>
 
         <div style={miniCard}>
-          <div style={miniTitle}>כיסוי ביטוחי</div>
-          <div style={miniValue}>{formatMoney(file.summary.cover.totalInsurance)}</div>
+          <div style={miniTitle}>סכום ביטוח</div>
+          <div style={miniValue}>
+            {formatMoney(file.summary.cover.totalInsurance)}
+          </div>
         </div>
 
         <div style={miniCard}>
@@ -120,9 +126,9 @@ function PolicyTable({ policies }) {
               <th style={thStyle}>שם תכנית</th>
               <th style={thStyle}>מספר פוליסה</th>
               <th style={thStyle}>צבירה</th>
+              <th style={thStyle}>סכום חד הוני לפרישה</th>
               <th style={thStyle}>קצבה צפויה</th>
               <th style={thStyle}>הפקדה חודשית</th>
-              <th style={thStyle}>כיסוי ביטוחי</th>
             </tr>
           </thead>
           <tbody>
@@ -133,9 +139,13 @@ function PolicyTable({ policies }) {
                 <td style={tdStyle}>{policy.planName || "-"}</td>
                 <td style={tdStyle}>{policy.policyNo || "-"}</td>
                 <td style={tdStyle}>{formatMoney(policy.savings.totalAccumulated)}</td>
-                <td style={tdStyle}>{formatMoney(policy.savings.projectedMonthlyPension)}</td>
+                <td style={tdStyle}>
+                  {formatMoney(policy.savings.projectedRetirementBalance)}
+                </td>
+                <td style={tdStyle}>
+                  {formatMoney(policy.savings.projectedMonthlyPension)}
+                </td>
                 <td style={tdStyle}>{formatMoney(policy.monthlyDeposits.sumCost)}</td>
-                <td style={tdStyle}>{formatMoney(policy.coverage.totalInsurance)}</td>
               </tr>
             ))}
           </tbody>
@@ -248,14 +258,14 @@ export default function ReportPage({ dashboardData, parsedFiles, onReset }) {
         >
           <StatCard title="סך צבירה משפחתית" value={dashboardData.totals.totalAccumulated} dark />
           <StatCard
-            title="יתרה חזויה לפרישה"
+            title="סכום חד הוני לפרישה"
             value={dashboardData.totals.totalProjectedRetirementBalance}
           />
           <StatCard
             title="קצבה חודשית צפויה"
             value={dashboardData.totals.totalProjectedMonthlyPension}
           />
-          <StatCard title="כיסוי ביטוחי כולל" value={dashboardData.totals.totalInsurance} />
+          <StatCard title="סכום ביטוח" value={dashboardData.totals.totalInsurance} />
           <StatCard title="הפקדה / עלות חודשית" value={dashboardData.totals.totalMonthlyDeposits} />
         </div>
 
