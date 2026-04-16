@@ -1,362 +1,412 @@
-import React, { useMemo, useState } from "react";
-import UploadPage from "./UploadPage";
-import ReportPage from "./ReportPage";
+import pdfParse from "pdf-parse";
 
-function arrayBufferToBase64(buffer) {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, i + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-
-  return btoa(binary);
+function extractNumber(str) {
+  if (!str) return 0;
+  const cleaned = String(str).replace(/[^\d]/g, "");
+  return Number(cleaned) || 0;
 }
 
-export default function App() {
-  const [currentStep, setCurrentStep] = useState("upload");
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [selectedOwner, setSelectedOwner] = useState("self");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [reportData, setReportData] = useState(null);
+function normalizeText(text) {
+  return String(text || "")
+    .replace(/\u00A0/g, " ")
+    .replace(/\r/g, "")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+}
 
-  const handleFileUpload = (event) => {
-    const files = Array.from(event.target.files || []);
+function splitLines(text) {
+  return normalizeText(text)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
 
-    if (!files.length) return;
+function findIndex(lines, phrase) {
+  return lines.findIndex((line) => line.includes(phrase));
+}
 
-    const pdfOnly = files.filter((file) =>
-      file.name.toLowerCase().endsWith(".pdf")
-    );
+function findSection(lines, startPhrase, endPhrases = [], maxLines = 30) {
+  const start = findIndex(lines, startPhrase);
+  if (start === -1) return [];
 
-    if (!pdfOnly.length) {
-      alert("ניתן להעלות רק קבצי PDF.");
-      event.target.value = "";
-      return;
+  let end = Math.min(lines.length, start + maxLines);
+
+  for (let i = start + 1; i < Math.min(lines.length, start + maxLines); i++) {
+    if (endPhrases.some((phrase) => lines[i].includes(phrase))) {
+      end = i;
+      break;
     }
-
-    const newFiles = pdfOnly.map((file) => ({
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      owner: selectedOwner,
-      familyId: "family-1",
-      fileName: file.name,
-      fileType: file.type || "application/pdf",
-      fileSize: file.size,
-      status: "uploaded",
-      rawFile: file,
-      parsedData: null,
-      uploadedAt: new Date().toLocaleString("he-IL"),
-    }));
-
-    setUploadedFiles((prev) => [...prev, ...newFiles]);
-    event.target.value = "";
-  };
-
-  const handleDeleteFile = (id) => {
-    setUploadedFiles((prev) => prev.filter((file) => file.id !== id));
-  };
-
-  const handleResetAll = () => {
-    setUploadedFiles([]);
-    setReportData(null);
-    setCurrentStep("upload");
-    setIsAnalyzing(false);
-  };
-
-  const analyzePdfViaApi = async (file) => {
-    const arrayBuffer = await file.rawFile.arrayBuffer();
-    const fileBase64 = arrayBufferToBase64(arrayBuffer);
-
-    const response = await fetch("/api/analyze-pension-pdf", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        owner: file.owner,
-        fileName: file.fileName,
-        fileBase64,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || "שגיאה בניתוח הקובץ");
-    }
-
-    return data.parsedData;
-  };
-
-  const buildFamilyReport = (files) => {
-    const parsedFiles = files.filter((file) => file.parsedData);
-
-    const selfFiles = parsedFiles.filter((file) => file.owner === "self");
-    const spouseFiles = parsedFiles.filter((file) => file.owner === "spouse");
-
-    const sumParsed = (items, field) =>
-      items.reduce((total, item) => total + (item.parsedData?.[field] || 0), 0);
-
-    const totalAssets = sumParsed(parsedFiles, "balance");
-    const monthlyDeposits = sumParsed(parsedFiles, "monthlyDeposit");
-    const monthlyPensionWithDeposits = sumParsed(
-      parsedFiles,
-      "monthlyPensionWithDeposits"
-    );
-    const monthlyPensionWithoutDeposits = sumParsed(
-      parsedFiles,
-      "monthlyPensionWithoutDeposits"
-    );
-    const projectedLumpSumWithDeposits = sumParsed(
-      parsedFiles,
-      "lumpSumWithDeposits"
-    );
-    const projectedLumpSumWithoutDeposits = sumParsed(
-      parsedFiles,
-      "lumpSumWithoutDeposits"
-    );
-    const deathCoverageTotal = sumParsed(parsedFiles, "deathCoverage");
-
-    const selfAssets = sumParsed(selfFiles, "balance");
-    const spouseAssets = sumParsed(spouseFiles, "balance");
-
-    const selfName = selfFiles[0]?.parsedData?.fullName || "בן זוג";
-    const spouseName = spouseFiles[0]?.parsedData?.fullName || "בת זוג";
-
-    const members = [
-      {
-        name: selfName,
-        assets: selfAssets,
-        monthlyDeposits: sumParsed(selfFiles, "monthlyDeposit"),
-        shareOfFamilyAssets:
-          totalAssets > 0 ? Math.round((selfAssets / totalAssets) * 100) : 0,
-        monthlyPensionWithDeposits: sumParsed(
-          selfFiles,
-          "monthlyPensionWithDeposits"
-        ),
-        monthlyPensionWithoutDeposits: sumParsed(
-          selfFiles,
-          "monthlyPensionWithoutDeposits"
-        ),
-        lumpSumWithDeposits: sumParsed(selfFiles, "lumpSumWithDeposits"),
-        lumpSumWithoutDeposits: sumParsed(selfFiles, "lumpSumWithoutDeposits"),
-        deathCoverage: sumParsed(selfFiles, "deathCoverage"),
-        disabilityValue: sumParsed(selfFiles, "disabilityValue"),
-        disabilityPercent:
-          selfFiles.length > 0
-            ? Math.round(
-                selfFiles.reduce(
-                  (sum, item) => sum + (item.parsedData?.disabilityPercent || 0),
-                  0
-                ) / selfFiles.length
-              )
-            : 0,
-      },
-      {
-        name: spouseName,
-        assets: spouseAssets,
-        monthlyDeposits: sumParsed(spouseFiles, "monthlyDeposit"),
-        shareOfFamilyAssets:
-          totalAssets > 0 ? Math.round((spouseAssets / totalAssets) * 100) : 0,
-        monthlyPensionWithDeposits: sumParsed(
-          spouseFiles,
-          "monthlyPensionWithDeposits"
-        ),
-        monthlyPensionWithoutDeposits: sumParsed(
-          spouseFiles,
-          "monthlyPensionWithoutDeposits"
-        ),
-        lumpSumWithDeposits: sumParsed(spouseFiles, "lumpSumWithDeposits"),
-        lumpSumWithoutDeposits: sumParsed(
-          spouseFiles,
-          "lumpSumWithoutDeposits"
-        ),
-        deathCoverage: sumParsed(spouseFiles, "deathCoverage"),
-        disabilityValue: sumParsed(spouseFiles, "disabilityValue"),
-        disabilityPercent:
-          spouseFiles.length > 0
-            ? Math.round(
-                spouseFiles.reduce(
-                  (sum, item) => sum + (item.parsedData?.disabilityPercent || 0),
-                  0
-                ) / spouseFiles.length
-              )
-            : 0,
-      },
-    ];
-
-    const groupedProductsMap = {};
-    parsedFiles.forEach((file) => {
-      const extractedProducts = file.parsedData.extractedProducts || [];
-
-      if (extractedProducts.length > 0) {
-        extractedProducts.forEach((product) => {
-          const key = product.name || "לא ידוע";
-          groupedProductsMap[key] =
-            (groupedProductsMap[key] || 0) + (product.value || 0);
-        });
-      } else {
-        const key = file.parsedData.productType || "לא ידוע";
-        groupedProductsMap[key] =
-          (groupedProductsMap[key] || 0) + (file.parsedData.balance || 0);
-      }
-    });
-
-    const products = Object.entries(groupedProductsMap).map(([name, value]) => ({
-      name,
-      value,
-    }));
-
-    const groupedManagersMap = {};
-    parsedFiles.forEach((file) => {
-      const key = file.parsedData.provider || "לא ידוע";
-      groupedManagersMap[key] =
-        (groupedManagersMap[key] || 0) + (file.parsedData.balance || 0);
-    });
-
-    const managers = Object.entries(groupedManagersMap).map(([name, value]) => ({
-      name,
-      value,
-    }));
-
-    const groupedTracksMap = {};
-    parsedFiles.forEach((file) => {
-      const key = file.parsedData.trackName || "כללי / פנסיה";
-
-      if (!groupedTracksMap[key]) {
-        groupedTracksMap[key] = {
-          name: key,
-          value: 0,
-          equityPercent: file.parsedData.equityPercent || 0,
-        };
-      }
-
-      groupedTracksMap[key].value += file.parsedData.balance || 0;
-    });
-
-    const tracks = Object.values(groupedTracksMap);
-    const totalTracks = tracks.reduce((sum, item) => sum + item.value, 0);
-
-    const weightedEquityExposure =
-      totalTracks > 0
-        ? Math.round(
-            (tracks.reduce(
-              (sum, item) => sum + item.value * (item.equityPercent / 100),
-              0
-            ) /
-              totalTracks) *
-              100
-          )
-        : 0;
-
-    return {
-      family: {
-        totalAssets,
-        monthlyDeposits,
-        monthlyPensionWithDeposits,
-        monthlyPensionWithoutDeposits,
-        projectedLumpSumWithDeposits,
-        projectedLumpSumWithoutDeposits,
-        deathCoverageTotal,
-        lastUpdated: new Date().toLocaleDateString("he-IL", {
-          year: "numeric",
-          month: "long",
-        }),
-        retirementAgeLabel:
-          "התחזית מבוססת על גיל הפרישה המוגדר בדוחות (67)",
-      },
-      members,
-      products,
-      managers,
-      tracks,
-      loans: {
-        hasData: parsedFiles.some((file) => file.parsedData?.hasLoans),
-      },
-      beneficiaries: {
-        hasData: false,
-        coverageAmount: deathCoverageTotal,
-        summary:
-          "התקבלו סכומי כיסוי למקרה פטירה, אך לא התקבל מידע בדוחות לגבי סטטוס רישום המוטבים.",
-      },
-      weightedEquityExposure,
-      totalProducts: products.reduce((sum, item) => sum + item.value, 0),
-      totalManagers: managers.reduce((sum, item) => sum + item.value, 0),
-      totalTracks,
-      rawParsedFiles: parsedFiles,
-    };
-  };
-
-  const handleAnalyzeFiles = async () => {
-    if (!uploadedFiles.length) {
-      alert("צריך להעלות לפחות קובץ PDF אחד.");
-      return;
-    }
-
-    setIsAnalyzing(true);
-
-    try {
-      const filesWithProcessing = uploadedFiles.map((file) => ({
-        ...file,
-        status: "processing",
-      }));
-      setUploadedFiles(filesWithProcessing);
-
-      const parsedResults = [];
-
-      for (const file of filesWithProcessing) {
-        const parsedData = await analyzePdfViaApi(file);
-
-        parsedResults.push({
-          ...file,
-          status: "parsed",
-          parsedData,
-        });
-      }
-
-      setUploadedFiles(parsedResults);
-
-      const familyReport = buildFamilyReport(parsedResults);
-      setReportData(familyReport);
-      setCurrentStep("report");
-    } catch (error) {
-      console.error(error);
-      alert(error.message || "אירעה שגיאה בניתוח הקבצים.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const uploadSummary = useMemo(() => {
-    return {
-      totalFiles: uploadedFiles.length,
-      selfFiles: uploadedFiles.filter((f) => f.owner === "self").length,
-      spouseFiles: uploadedFiles.filter((f) => f.owner === "spouse").length,
-      parsedFiles: uploadedFiles.filter((f) => f.status === "parsed").length,
-    };
-  }, [uploadedFiles]);
-
-  if (currentStep === "report" && reportData) {
-    return (
-      <ReportPage
-        reportData={reportData}
-        onBack={() => setCurrentStep("upload")}
-        onResetAll={handleResetAll}
-      />
-    );
   }
 
-  return (
-    <UploadPage
-      selectedOwner={selectedOwner}
-      setSelectedOwner={setSelectedOwner}
-      uploadedFiles={uploadedFiles}
-      uploadSummary={uploadSummary}
-      onFileUpload={handleFileUpload}
-      onDeleteFile={handleDeleteFile}
-      onAnalyzeFiles={handleAnalyzeFiles}
-      isAnalyzing={isAnalyzing}
-    />
+  return lines.slice(start, end);
+}
+
+function firstNumberInLine(line) {
+  const match = line.match(/[\d,]+/);
+  return match ? extractNumber(match[0]) : 0;
+}
+
+function lastNumberInLine(line) {
+  const matches = line.match(/[\d,]+/g);
+  return matches && matches.length ? extractNumber(matches[matches.length - 1]) : 0;
+}
+
+function largestNumberInTextBlock(text) {
+  const matches = String(text || "").match(/[\d,]+/g) || [];
+  const nums = matches.map(extractNumber).filter((n) => n > 0);
+  return nums.length ? Math.max(...nums) : 0;
+}
+
+function parseTotalAssets(lines, rawText) {
+  // הכי יציב: שורה עם "צברת"
+  for (const line of lines) {
+    if (line.includes("צברת")) {
+      const nums = line.match(/[\d,]+/g) || [];
+      const big = nums.map(extractNumber).filter((n) => n >= 100000);
+      if (big.length) return big[big.length - 1];
+    }
+  }
+
+  // fallback: בלוק סביב "חיסכון פנסיוני"
+  const section = findSection(lines, "חיסכון פנסיוני", ["חלוקה לפי מוצר", "כמה כסף מופקד עבורי?"], 20);
+  const joined = section.join(" ");
+  return largestNumberInTextBlock(joined || rawText);
+}
+
+function parseProducts(lines) {
+  const section = findSection(
+    lines,
+    "סוג המוצר",
+    ["חלוקה לפי מוצר", "חלוקה לפי חברה", "כמה כסף מופקד עבורי?"],
+    20
   );
+
+  const products = [];
+  const seen = new Set();
+
+  for (const line of section) {
+    const value = lastNumberInLine(line);
+    if (!value) continue;
+
+    if (line.includes("פנסיה חדשה מקיפה")) {
+      const key = `pension-new-${value}`;
+      if (!seen.has(key)) {
+        products.push({ name: "פנסיה חדשה מקיפה", value });
+        seen.add(key);
+      }
+    } else if (line.includes("פנסיה כללית מקיפה")) {
+      const key = `pension-general-${value}`;
+      if (!seen.has(key)) {
+        products.push({ name: "פנסיה כללית מקיפה", value });
+        seen.add(key);
+      }
+    } else if (line.includes("קופת גמל")) {
+      const key = `gemel-${value}`;
+      if (!seen.has(key)) {
+        products.push({ name: "קופות גמל", value });
+        seen.add(key);
+      }
+    } else if (line.includes("קרן השתלמות")) {
+      const key = `hishtalmut-${value}`;
+      if (!seen.has(key)) {
+        products.push({ name: "קרנות השתלמות", value });
+        seen.add(key);
+      }
+    } else if (line.includes("גמל להשקעה")) {
+      const key = `invest-gemel-${value}`;
+      if (!seen.has(key)) {
+        products.push({ name: "גמל להשקעה", value });
+        seen.add(key);
+      }
+    }
+  }
+
+  return products;
+}
+
+function parseMonthlyDeposit(lines) {
+  for (const line of lines) {
+    if (line.includes("הופקדו")) {
+      const nums = line.match(/[\d,]+/g) || [];
+      const big = nums.map(extractNumber).filter((n) => n >= 1000);
+      if (big.length) return big[0];
+    }
+  }
+
+  const section = findSection(lines, "כמה כסף מופקד עבורי?", ["כמה כסף יהיה לי בגיל הפרישה?"], 20);
+  const joined = section.join(" ");
+  const nums = joined.match(/[\d,]+/g) || [];
+  const values = nums.map(extractNumber).filter((n) => n >= 1000);
+  return values.length ? values[0] : 0;
+}
+
+function parseRetirement(lines) {
+  const section = findSection(
+    lines,
+    "כמה כסף יהיה לי בגיל הפרישה?",
+    ["עכשיו... בואו נדבר", "מה יקרה אם", "כמה כסף יהיה לי אם לא אוכל לעבוד?"],
+    25
+  );
+
+  const joined = section.join(" ");
+  const nums = (joined.match(/[\d,]+/g) || [])
+    .map(extractNumber)
+    .filter((n) => n >= 1000);
+
+  // במבנה של הדוח:
+  // ללא הפקדות: סכום חד פעמי, קצבה חודשית
+  // עם הפקדות: סכום חד פעמי, קצבה חודשית
+  return {
+    lumpSumWithoutDeposits: nums[0] || 0,
+    monthlyPensionWithoutDeposits: nums[1] || 0,
+    lumpSumWithDeposits: nums[2] || 0,
+    monthlyPensionWithDeposits: nums[3] || 0,
+  };
+}
+
+function parseDisability(lines) {
+  const section = findSection(
+    lines,
+    "כמה כסף יהיה לי אם לא אוכל לעבוד?",
+    ["כמה כסף יהיה למשפחתי אם אמות?", "בנוסף לסכום ההוני"],
+    20
+  );
+  const joined = section.join(" ");
+  const nums = (joined.match(/[\d,]+/g) || [])
+    .map(extractNumber)
+    .filter((n) => n >= 1000);
+
+  return nums.length ? nums[0] : 0;
+}
+
+function parseDisabilityPercent(lines) {
+  const section = findSection(
+    lines,
+    "כמה כסף יהיה לי אם לא אוכל לעבוד?",
+    ["כמה כסף יהיה למשפחתי אם אמות?", "בנוסף לסכום ההוני"],
+    20
+  );
+  const joined = section.join(" ");
+  const match = joined.match(/(\d{1,3})%/);
+  return match ? extractNumber(match[1]) : 0;
+}
+
+function parseDeathCoverage(lines) {
+  const section = findSection(
+    lines,
+    "כמה כסף יהיה למשפחתי אם אמות?",
+    ["בנוסף לסכום ההוני", "רוצה לשמוע על התשואות שלך?", "אז כמה כל זה עולה לי?"],
+    25
+  );
+  const joined = section.join(" ");
+  const nums = (joined.match(/[\d,]+/g) || [])
+    .map(extractNumber)
+    .filter((n) => n >= 1000);
+
+  return nums.length ? nums[0] : 0;
+}
+
+function parseSpouseChildCoverage(lines) {
+  const section = findSection(
+    lines,
+    "בנוסף לסכום ההוני",
+    ["רוצה לשמוע על התשואות שלך?", "אז כמה כל זה עולה לי?"],
+    20
+  );
+
+  let spouseCoverageMonthly = 0;
+  let childCoverageMonthly = 0;
+
+  for (const line of section) {
+    if (line.includes("לאישה / הבעל")) {
+      spouseCoverageMonthly = firstNumberInLine(line) || spouseCoverageMonthly;
+    }
+    if (line.includes("לכל ילד")) {
+      childCoverageMonthly = firstNumberInLine(line) || childCoverageMonthly;
+    }
+  }
+
+  if (!spouseCoverageMonthly || !childCoverageMonthly) {
+    const joined = section.join(" ");
+    const nums = (joined.match(/[\d,]+/g) || [])
+      .map(extractNumber)
+      .filter((n) => n >= 1000);
+
+    // בעמוד 5 לרוב מופיעים קודם 36,180 ואז 24,120 / או בשורה מסכמת 24,120 ואז 36,180
+    if (!spouseCoverageMonthly && nums.length >= 2) {
+      spouseCoverageMonthly = Math.max(nums[0], nums[1]);
+    }
+    if (!childCoverageMonthly && nums.length >= 2) {
+      childCoverageMonthly = Math.min(nums[0], nums[1]);
+    }
+  }
+
+  return { spouseCoverageMonthly, childCoverageMonthly };
+}
+
+function parseInsuranceCosts(lines) {
+  const section = findSection(
+    lines,
+    "אז כמה כל זה עולה לי?",
+    ["כמה דמי ניהול אני משלם?", "כמה דמי ניהול אני משלמת?"],
+    40
+  );
+
+  let insuranceCostMonthly = 0;
+  let lifeInsuranceCostMonthly = 0;
+
+  for (const line of section) {
+    if (line.includes("עלות חודשית אבדן כושר עבודה") || line.includes("פנסיית נכות")) {
+      const nums = line.match(/[\d,]+/g) || [];
+      const values = nums.map(extractNumber).filter((n) => n > 0);
+      if (values.length) insuranceCostMonthly = values[values.length - 1];
+    }
+
+    if (line.includes("עלות חודשית ביטוח חיים") || line.includes("ביטוח שארים")) {
+      const nums = line.match(/[\d,]+/g) || [];
+      const values = nums.map(extractNumber).filter((n) => n > 0);
+      if (values.length) lifeInsuranceCostMonthly = values[values.length - 1];
+    }
+  }
+
+  return { insuranceCostMonthly, lifeInsuranceCostMonthly };
+}
+
+function parseAnnualManagementFees(lines) {
+  for (const line of lines) {
+    if (
+      line.includes("12- החודשים האחרונים שילמת") ||
+      line.includes("12- החודשים האחרונים שילמת") ||
+      line.includes("12- החודשים האחרונים שילם")
+    ) {
+      const nums = line.match(/[\d,]+/g) || [];
+      const values = nums.map(extractNumber).filter((n) => n >= 1);
+      if (values.length) return values[values.length - 1];
+    }
+  }
+
+  const section = findSection(
+    lines,
+    "כמה דמי ניהול אני משלם?",
+    ["ממוצע דמי ניהול", "היות וסוגיית דמי הניהול"],
+    20
+  );
+  return largestNumberInTextBlock(section.join(" "));
+}
+
+function parseManagementFeeRates(lines) {
+  const section = findSection(
+    lines,
+    "דמי ניהול מצבירה",
+    [],
+    30
+  );
+
+  const rates = {
+    managementFeeBalance: 0,
+    managementFeeDeposit: 0,
+    managementFeeProfit: 0,
+  };
+
+  const percents = (section.join(" ").match(/\d+(?:\.\d+)?%/g) || []).map((p) =>
+    Number(p.replace("%", ""))
+  );
+
+  if (percents.length) {
+    rates.managementFeeBalance = percents[0] || 0;
+    rates.managementFeeDeposit = percents[1] || 0;
+    rates.managementFeeProfit = percents[2] || 0;
+  }
+
+  return rates;
+}
+
+function detectLoans(rawText) {
+  return /הלוואה|הלוואות/.test(rawText);
+}
+
+function inferProvider(products) {
+  if (!products.length) return "לא זוהה";
+  return "מסלקה פנסיונית";
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      success: false,
+      error: "Method not allowed",
+    });
+  }
+
+  try {
+    const { owner, fileName, fileBase64 } = req.body || {};
+
+    if (!fileBase64) {
+      return res.status(400).json({
+        success: false,
+        error: "לא התקבל קובץ לניתוח",
+      });
+    }
+
+    const buffer = Buffer.from(fileBase64, "base64");
+    const pdfData = await pdfParse(buffer);
+    const rawText = normalizeText(pdfData.text || "");
+    const lines = splitLines(pdfData.text || "");
+
+    const balance = parseTotalAssets(lines, rawText);
+    const monthlyDeposit = parseMonthlyDeposit(lines);
+    const retirement = parseRetirement(lines);
+    const disabilityValue = parseDisability(lines);
+    const disabilityPercent = parseDisabilityPercent(lines);
+    const deathCoverage = parseDeathCoverage(lines);
+    const { spouseCoverageMonthly, childCoverageMonthly } = parseSpouseChildCoverage(lines);
+    const { insuranceCostMonthly, lifeInsuranceCostMonthly } = parseInsuranceCosts(lines);
+    const annualManagementFees = parseAnnualManagementFees(lines);
+    const feeRates = parseManagementFeeRates(lines);
+    const extractedProducts = parseProducts(lines);
+
+    const parsedData = {
+      owner: owner || "self",
+      fileName: fileName || "",
+      fullName: owner === "self" ? "בן זוג" : "בת זוג",
+      provider: inferProvider(extractedProducts),
+      productType: extractedProducts[0]?.name || "פנסיה",
+      balance,
+      monthlyDeposit,
+      monthlyPensionWithDeposits: retirement.monthlyPensionWithDeposits,
+      monthlyPensionWithoutDeposits: retirement.monthlyPensionWithoutDeposits,
+      lumpSumWithDeposits: retirement.lumpSumWithDeposits,
+      lumpSumWithoutDeposits: retirement.lumpSumWithoutDeposits,
+      managementFeeBalance: feeRates.managementFeeBalance || 0,
+      managementFeeDeposit: feeRates.managementFeeDeposit || 0,
+      managementFeeProfit: feeRates.managementFeeProfit || 0,
+      annualManagementFees: annualManagementFees || 0,
+      disabilityValue: disabilityValue || 0,
+      disabilityPercent: disabilityPercent || 0,
+      lifeCoverage: deathCoverage || 0,
+      deathCoverage: deathCoverage || 0,
+      spouseCoverageMonthly: spouseCoverageMonthly || 0,
+      childCoverageMonthly: childCoverageMonthly || 0,
+      insuranceCostMonthly: insuranceCostMonthly || 0,
+      lifeInsuranceCostMonthly: lifeInsuranceCostMonthly || 0,
+      trackName: "כללי",
+      equityPercent: 45,
+      extractedProducts,
+      hasLoans: detectLoans(rawText),
+      rawTextPreview: rawText.slice(0, 4000),
+    };
+
+    return res.status(200).json({
+      success: true,
+      parsedData,
+    });
+  } catch (error) {
+    console.error("PDF parse error:", error);
+
+    return res.status(500).json({
+      success: false,
+      error: "שגיאה בניתוח PDF",
+      details: error.message,
+    });
+  }
 }
