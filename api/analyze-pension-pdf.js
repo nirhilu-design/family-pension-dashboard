@@ -1,8 +1,8 @@
 import pdfParse from "pdf-parse";
 
-function extractNumber(str) {
-  if (!str) return 0;
-  return Number(String(str).replace(/[^\d]/g, "")) || 0;
+function extractNumber(value) {
+  if (!value) return 0;
+  return Number(String(value).replace(/[^\d]/g, "")) || 0;
 }
 
 function normalizeText(text) {
@@ -13,44 +13,54 @@ function normalizeText(text) {
     .trim();
 }
 
-function extractSection(text, startPhrase, endPhrases = []) {
-  const start = text.indexOf(startPhrase);
-  if (start === -1) return "";
-
-  let end = text.length;
-  for (const phrase of endPhrases) {
-    const idx = text.indexOf(phrase, start + startPhrase.length);
-    if (idx !== -1 && idx < end) end = idx;
-  }
-
-  return text.slice(start, end);
-}
-
-function findNumbers(text, min = 0) {
-  return (String(text || "").match(/[\d,]+/g) || [])
-    .map(extractNumber)
-    .filter((n) => n >= min);
-}
-
-function findFirstLineContaining(lines, phrase) {
-  return lines.find((line) => line.includes(phrase)) || "";
-}
-
 function splitLines(text) {
-  return String(text || "")
+  return normalizeText(text)
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 }
 
-function parseProductsFromBlock(block) {
-  const lines = splitLines(block);
+function findLine(lines, phrase) {
+  return lines.find((line) => line.includes(phrase)) || "";
+}
+
+function findSection(lines, startPhrase, endPhrases = [], maxLines = 40) {
+  const startIndex = lines.findIndex((line) => line.includes(startPhrase));
+  if (startIndex === -1) return [];
+
+  let endIndex = Math.min(lines.length, startIndex + maxLines);
+
+  for (let i = startIndex + 1; i < Math.min(lines.length, startIndex + maxLines); i++) {
+    if (endPhrases.some((phrase) => lines[i].includes(phrase))) {
+      endIndex = i;
+      break;
+    }
+  }
+
+  return lines.slice(startIndex, endIndex);
+}
+
+function findNumbers(text, min = 0) {
+  return (String(text || "").match(/[\d,]+/g) || [])
+    .map(extractNumber)
+    .filter((num) => num >= min);
+}
+
+function parseProducts(lines) {
+  const section = findSection(
+    lines,
+    "סוג המוצר",
+    ["חלוקה לפי מוצר", "חלוקה לפי חברה", "כמה כסף מופקד עבורי?"],
+    25
+  );
+
   const products = [];
 
-  for (const line of lines) {
-    const nums = findNumbers(line, 1);
-    if (!nums.length) continue;
-    const value = nums[nums.length - 1];
+  for (const line of section) {
+    const numbers = findNumbers(line, 1);
+    if (!numbers.length) continue;
+
+    const value = numbers[numbers.length - 1];
 
     if (line.includes("פנסיה חדשה מקיפה")) {
       products.push({ name: "פנסיה חדשה מקיפה", value });
@@ -65,108 +75,95 @@ function parseProductsFromBlock(block) {
     }
   }
 
-  return products.filter((p) => p.value > 0);
+  return products.filter((product) => product.value > 0);
 }
 
-function parsePage1Block(rawText) {
-  const block = extractSection(rawText, "סוג המוצר", [
-    "חלוקה לפי מוצר",
-    "חלוקה לפי חברה",
-    "כמה כסף מופקד עבורי?",
-  ]);
-
-  const products = parseProductsFromBlock(block);
-  const totalAssets = products.reduce((sum, p) => sum + p.value, 0);
-
-  return {
-    totalAssets,
-    products,
-  };
+function parseTotalAssetsFromProducts(products) {
+  return products.reduce((sum, product) => sum + (product.value || 0), 0);
 }
 
-function parseDepositBlock(rawText) {
-  const block = extractSection(rawText, "כמה כסף מופקד עבורי?", [
+function parseMonthlyDeposit(lines) {
+  const line = findLine(lines, "הופקדו");
+  const numbers = findNumbers(line, 1000);
+  return numbers[0] || 0;
+}
+
+function parseRetirement(lines) {
+  const section = findSection(
+    lines,
     "כמה כסף יהיה לי בגיל הפרישה?",
-  ]);
+    ["כמה כסף יהיה לי אם לא אוכל לעבוד?", "עכשיו... בואו נדבר", "מה יקרה אם"],
+    30
+  );
 
-  const lines = splitLines(block);
-  const depositLine = findFirstLineContaining(lines, "הופקדו");
-  const depositNums = findNumbers(depositLine, 1000);
+  const numbers = section.flatMap((line) => findNumbers(line, 1000));
 
   return {
-    monthlyDeposit: depositNums[0] || 0,
-    rawBlock: block,
+    lumpSumWithoutDeposits: numbers[0] || 0,
+    monthlyPensionWithoutDeposits: numbers[1] || 0,
+    lumpSumWithDeposits: numbers[2] || 0,
+    monthlyPensionWithDeposits: numbers[3] || 0,
   };
 }
 
-function parseRetirementBlock(rawText) {
-  const block = extractSection(rawText, "כמה כסף יהיה לי בגיל הפרישה?", [
+function parseDisability(lines) {
+  const section = findSection(
+    lines,
     "כמה כסף יהיה לי אם לא אוכל לעבוד?",
-    "עכשיו... בואו נדבר",
-    "מה יקרה אם",
-  ]);
+    ["כמה כסף יהיה למשפחתי אם אמות?"],
+    20
+  );
 
-  const nums = findNumbers(block, 1000);
-
-  return {
-    lumpSumWithoutDeposits: nums[0] || 0,
-    monthlyPensionWithoutDeposits: nums[1] || 0,
-    lumpSumWithDeposits: nums[2] || 0,
-    monthlyPensionWithDeposits: nums[3] || 0,
-  };
-}
-
-function parseDisabilityAndDeath(rawText) {
-  const disabilityBlock = extractSection(rawText, "כמה כסף יהיה לי אם לא אוכל לעבוד?", [
-    "כמה כסף יהיה למשפחתי אם אמות?",
-  ]);
-
-  const disabilityNums = findNumbers(disabilityBlock, 1000);
-  const percentMatch = disabilityBlock.match(/(\d{1,3})%/);
-
-  const deathBlock = extractSection(rawText, "כמה כסף יהיה למשפחתי אם אמות?", [
-    "בנוסף לסכום ההוני",
-    "רוצה לשמוע על התשואות שלך?",
-    "אז כמה כל זה עולה לי?",
-  ]);
-
-  const deathNums = findNumbers(deathBlock, 1000);
+  const joined = section.join(" ");
+  const numbers = findNumbers(joined, 1000);
+  const percentMatch = joined.match(/(\d{1,3})%/);
 
   return {
-    disabilityValue: disabilityNums[0] || 0,
+    disabilityValue: numbers[0] || 0,
     disabilityPercent: percentMatch ? extractNumber(percentMatch[1]) : 0,
-    deathCoverage: deathNums[0] || 0,
   };
 }
 
-function parseFamilyCoverage(rawText) {
-  const block = extractSection(rawText, "בנוסף לסכום ההוני", [
-    "רוצה לשמוע על התשואות שלך?",
-    "אז כמה כל זה עולה לי?",
-  ]);
+function parseDeathCoverage(lines) {
+  const section = findSection(
+    lines,
+    "כמה כסף יהיה למשפחתי אם אמות?",
+    ["בנוסף לסכום ההוני", "רוצה לשמוע על התשואות שלך?", "אז כמה כל זה עולה לי?"],
+    30
+  );
 
-  const lines = splitLines(block);
+  const numbers = section.flatMap((line) => findNumbers(line, 1000));
+  return numbers[0] || 0;
+}
+
+function parseFamilyCoverage(lines) {
+  const section = findSection(
+    lines,
+    "בנוסף לסכום ההוני",
+    ["רוצה לשמוע על התשואות שלך?", "אז כמה כל זה עולה לי?"],
+    25
+  );
 
   let spouseCoverageMonthly = 0;
   let childCoverageMonthly = 0;
 
-  for (const line of lines) {
+  for (const line of section) {
     if (line.includes("לאישה / הבעל")) {
-      const nums = findNumbers(line, 1000);
-      spouseCoverageMonthly = nums[0] || spouseCoverageMonthly;
+      const numbers = findNumbers(line, 1000);
+      spouseCoverageMonthly = numbers[0] || spouseCoverageMonthly;
     }
 
     if (line.includes("לכל ילד")) {
-      const nums = findNumbers(line, 1000);
-      childCoverageMonthly = nums[0] || childCoverageMonthly;
+      const numbers = findNumbers(line, 1000);
+      childCoverageMonthly = numbers[0] || childCoverageMonthly;
     }
   }
 
   if (!spouseCoverageMonthly || !childCoverageMonthly) {
-    const nums = findNumbers(block, 1000);
-    if (nums.length >= 2) {
-      spouseCoverageMonthly ||= Math.max(nums[0], nums[1]);
-      childCoverageMonthly ||= Math.min(nums[0], nums[1]);
+    const allNumbers = section.flatMap((line) => findNumbers(line, 1000));
+    if (allNumbers.length >= 2) {
+      spouseCoverageMonthly ||= Math.max(allNumbers[0], allNumbers[1]);
+      childCoverageMonthly ||= Math.min(allNumbers[0], allNumbers[1]);
     }
   }
 
@@ -176,48 +173,32 @@ function parseFamilyCoverage(rawText) {
   };
 }
 
-function parseCostsAndFees(rawText) {
-  const costsBlock = extractSection(rawText, "אז כמה כל זה עולה לי?", [
-    "היות וסוגיית דמי הניהול",
-    "ישנם מספר סוגים של דמי ניהול",
-  ]);
+function parseInsuranceCosts(lines) {
+  const disabilityCostLine = findLine(lines, "עלות חודשית אבדן כושר עבודה");
+  const lifeCostLine = findLine(lines, "עלות חודשית ביטוח חיים");
+  const managementFeesLine =
+    findLine(lines, "החודשים האחרונים שילמת") ||
+    findLine(lines, "החודשים האחרונים שילם");
 
-  const lines = splitLines(costsBlock);
-
-  let insuranceCostMonthly = 0;
-  let lifeInsuranceCostMonthly = 0;
-  let annualManagementFees = 0;
-
-  for (const line of lines) {
-    if (line.includes("עלות חודשית אבדן כושר עבודה")) {
-      const nums = findNumbers(line, 1);
-      insuranceCostMonthly = nums[nums.length - 1] || 0;
-    }
-
-    if (line.includes("עלות חודשית ביטוח חיים")) {
-      const nums = findNumbers(line, 1);
-      lifeInsuranceCostMonthly = nums[nums.length - 1] || 0;
-    }
-
-    if (
-      line.includes("החודשים האחרונים שילמת") ||
-      line.includes("החודשים האחרונים שילם")
-    ) {
-      const nums = findNumbers(line, 1);
-      annualManagementFees = nums[nums.length - 1] || 0;
-    }
-  }
-
-  const feeDetailBlock = extractSection(rawText, "דמי ניהול מצבירה", []);
-
-  const percents = (feeDetailBlock.match(/\d+(?:\.\d+)?%/g) || []).map((p) =>
-    Number(p.replace("%", ""))
-  );
+  const insuranceCostMonthly = findNumbers(disabilityCostLine, 1).slice(-1)[0] || 0;
+  const lifeInsuranceCostMonthly = findNumbers(lifeCostLine, 1).slice(-1)[0] || 0;
+  const annualManagementFees = findNumbers(managementFeesLine, 1).slice(-1)[0] || 0;
 
   return {
     insuranceCostMonthly,
     lifeInsuranceCostMonthly,
     annualManagementFees,
+  };
+}
+
+function parseManagementFeeRates(lines) {
+  const section = findSection(lines, "דמי ניהול מצבירה", [], 40);
+  const joined = section.join(" ");
+  const percents = (joined.match(/\d+(?:\.\d+)?%/g) || []).map((p) =>
+    Number(p.replace("%", ""))
+  );
+
+  return {
     managementFeeBalance: percents[0] || 0,
     managementFeeDeposit: percents[1] || 0,
     managementFeeProfit: percents[2] || 0,
@@ -249,41 +230,45 @@ export default async function handler(req, res) {
     const buffer = Buffer.from(fileBase64, "base64");
     const pdfData = await pdfParse(buffer);
     const rawText = normalizeText(pdfData.text || "");
+    const lines = splitLines(pdfData.text || "");
 
-    const page1 = parsePage1Block(rawText);
-    const deposit = parseDepositBlock(rawText);
-    const retirement = parseRetirementBlock(rawText);
-    const disabilityDeath = parseDisabilityAndDeath(rawText);
-    const familyCoverage = parseFamilyCoverage(rawText);
-    const costsFees = parseCostsAndFees(rawText);
+    const extractedProducts = parseProducts(lines);
+    const balance = parseTotalAssetsFromProducts(extractedProducts);
+    const monthlyDeposit = parseMonthlyDeposit(lines);
+    const retirement = parseRetirement(lines);
+    const disability = parseDisability(lines);
+    const deathCoverage = parseDeathCoverage(lines);
+    const familyCoverage = parseFamilyCoverage(lines);
+    const insuranceCosts = parseInsuranceCosts(lines);
+    const feeRates = parseManagementFeeRates(lines);
 
     const parsedData = {
       owner: owner || "self",
       fileName: fileName || "",
       fullName: owner === "self" ? "בן זוג" : "בת זוג",
       provider: "מסלקה פנסיונית",
-      productType: page1.products[0]?.name || "פנסיה",
-      balance: page1.totalAssets || 0,
-      monthlyDeposit: deposit.monthlyDeposit || 0,
+      productType: extractedProducts[0]?.name || "פנסיה",
+      balance: balance || 0,
+      monthlyDeposit: monthlyDeposit || 0,
       monthlyPensionWithDeposits: retirement.monthlyPensionWithDeposits || 0,
       monthlyPensionWithoutDeposits: retirement.monthlyPensionWithoutDeposits || 0,
       lumpSumWithDeposits: retirement.lumpSumWithDeposits || 0,
       lumpSumWithoutDeposits: retirement.lumpSumWithoutDeposits || 0,
-      managementFeeBalance: costsFees.managementFeeBalance || 0,
-      managementFeeDeposit: costsFees.managementFeeDeposit || 0,
-      managementFeeProfit: costsFees.managementFeeProfit || 0,
-      annualManagementFees: costsFees.annualManagementFees || 0,
-      disabilityValue: disabilityDeath.disabilityValue || 0,
-      disabilityPercent: disabilityDeath.disabilityPercent || 0,
-      lifeCoverage: disabilityDeath.deathCoverage || 0,
-      deathCoverage: disabilityDeath.deathCoverage || 0,
+      managementFeeBalance: feeRates.managementFeeBalance || 0,
+      managementFeeDeposit: feeRates.managementFeeDeposit || 0,
+      managementFeeProfit: feeRates.managementFeeProfit || 0,
+      annualManagementFees: insuranceCosts.annualManagementFees || 0,
+      disabilityValue: disability.disabilityValue || 0,
+      disabilityPercent: disability.disabilityPercent || 0,
+      lifeCoverage: deathCoverage || 0,
+      deathCoverage: deathCoverage || 0,
       spouseCoverageMonthly: familyCoverage.spouseCoverageMonthly || 0,
       childCoverageMonthly: familyCoverage.childCoverageMonthly || 0,
-      insuranceCostMonthly: costsFees.insuranceCostMonthly || 0,
-      lifeInsuranceCostMonthly: costsFees.lifeInsuranceCostMonthly || 0,
+      insuranceCostMonthly: insuranceCosts.insuranceCostMonthly || 0,
+      lifeInsuranceCostMonthly: insuranceCosts.lifeInsuranceCostMonthly || 0,
       trackName: "כללי",
       equityPercent: 45,
-      extractedProducts: page1.products || [],
+      extractedProducts: extractedProducts || [],
       hasLoans: detectLoans(rawText),
       rawTextPreview: rawText.slice(0, 4000),
     };
