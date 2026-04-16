@@ -69,74 +69,31 @@ function MemberCard({ file }) {
           gap: 14,
         }}
       >
-        <div
-          style={{
-            background: "#f9fbff",
-            border: "1px solid #e4e9f5",
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <div style={{ color: "#6b7280", marginBottom: 8 }}>סך צבירה</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#0d2c6c" }}>
-            {formatMoney(file.summary.save.totalAccumulated)}
-          </div>
+        <div style={miniCard}>
+          <div style={miniTitle}>סך צבירה</div>
+          <div style={miniValue}>{formatMoney(file.summary.save.totalAccumulated)}</div>
         </div>
 
-        <div
-          style={{
-            background: "#f9fbff",
-            border: "1px solid #e4e9f5",
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <div style={{ color: "#6b7280", marginBottom: 8 }}>קצבה חודשית צפויה</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#0d2c6c" }}>
-            {formatMoney(file.summary.save.projectedMonthlyPension)}
-          </div>
+        <div style={miniCard}>
+          <div style={miniTitle}>קצבה חודשית צפויה</div>
+          <div style={miniValue}>{formatMoney(file.summary.save.projectedMonthlyPension)}</div>
         </div>
 
-        <div
-          style={{
-            background: "#f9fbff",
-            border: "1px solid #e4e9f5",
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <div style={{ color: "#6b7280", marginBottom: 8 }}>סכום הוני צפוי</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#0d2c6c" }}>
+        <div style={miniCard}>
+          <div style={miniTitle}>סכום הוני צפוי</div>
+          <div style={miniValue}>
             {formatMoney(file.summary.save.projectedRetirementBalance)}
           </div>
         </div>
 
-        <div
-          style={{
-            background: "#f9fbff",
-            border: "1px solid #e4e9f5",
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <div style={{ color: "#6b7280", marginBottom: 8 }}>כיסוי ביטוחי</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#0d2c6c" }}>
-            {formatMoney(file.summary.cover.totalInsurance)}
-          </div>
+        <div style={miniCard}>
+          <div style={miniTitle}>כיסוי ביטוחי</div>
+          <div style={miniValue}>{formatMoney(file.summary.cover.totalInsurance)}</div>
         </div>
 
-        <div
-          style={{
-            background: "#f9fbff",
-            border: "1px solid #e4e9f5",
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <div style={{ color: "#6b7280", marginBottom: 8 }}>הפקדה / עלות חודשית</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#0d2c6c" }}>
-            {formatMoney(file.summary.budget.sumCost)}
-          </div>
+        <div style={miniCard}>
+          <div style={miniTitle}>הפקדה / עלות חודשית</div>
+          <div style={miniValue}>{formatMoney(file.summary.budget.sumCost)}</div>
         </div>
       </div>
     </div>
@@ -187,6 +144,24 @@ function PolicyTable({ policies }) {
     </div>
   );
 }
+
+const miniCard = {
+  background: "#f9fbff",
+  border: "1px solid #e4e9f5",
+  borderRadius: 18,
+  padding: 16,
+};
+
+const miniTitle = {
+  color: "#6b7280",
+  marginBottom: 8,
+};
+
+const miniValue = {
+  fontSize: 28,
+  fontWeight: 800,
+  color: "#0d2c6c",
+};
 
 const thStyle = {
   textAlign: "right",
