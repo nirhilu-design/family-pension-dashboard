@@ -4,63 +4,117 @@ function cleanText(text) {
   return text
     .replace(/\u00A0/g, " ")
     .replace(/\s+/g, " ")
+    .replace(/[|]/g, " ")
     .trim();
 }
 
-function parseMoney(str) {
-  if (!str) return 0;
-  return Number(str.replace(/,/g, "").replace(/[^\d]/g, ""));
+function parseMoney(value) {
+  if (!value) return 0;
+  const cleaned = String(value).replace(/,/g, "").replace(/[^\d]/g, "");
+  return Number(cleaned || 0);
 }
 
-function extractAllNumbers(text) {
-  return [...text.matchAll(/([\d,]{3,})/g)].map((m) => ({
-    value: parseMoney(m[1]),
-    index: m.index,
-  }));
+function uniqMax(values) {
+  const clean = values.filter((v) => Number.isFinite(v) && v > 0);
+  return clean.length ? Math.max(...clean) : 0;
 }
 
-function findClosestKeyword(text, index) {
-  const window = text.slice(Math.max(0, index - 40), index + 40);
+function findMatches(text, patterns) {
+  const results = [];
 
-  if (/פנסיה/.test(window)) return "פנסיה";
-  if (/גמל/.test(window)) return "קופות גמל";
-  if (/השתלמות/.test(window)) return "קרנות השתלמות";
+  for (const pattern of patterns) {
+    const matches = [...text.matchAll(pattern)];
+    for (const match of matches) {
+      if (match[1]) {
+        const value = parseMoney(match[1]);
+        if (value > 0) results.push(value);
+      }
+    }
+  }
 
-  return null;
+  return results;
+}
+
+function extractTotalAssets(text) {
+  const totals = findMatches(text, [
+    /([\d,]{5,})\s*₪?\s*צברת/gi,
+    /צברת\s*([\d,]{5,})\s*₪?/gi,
+    /הסכום\s*המצטבר\s*([\d,]{5,})\s*₪?/gi,
+    /סך\s*צבירה\s*([\d,]{5,})\s*₪?/gi,
+  ]);
+
+  return uniqMax(totals);
+}
+
+function extractProductValue(text, productName, extraPatterns = []) {
+  const basePatterns = [
+    new RegExp(`([\\d,]{3,})\\s*₪?[^\\n]{0,40}${productName}`, "gi"),
+    new RegExp(`${productName}[^\\n]{0,40}([\\d,]{3,})\\s*₪?`, "gi"),
+  ];
+
+  const values = findMatches(text, [...basePatterns, ...extraPatterns]);
+  return uniqMax(values);
 }
 
 function extractProducts(text) {
-  const numbers = extractAllNumbers(text);
+  const pensionValue = extractProductValue(" " + text + " ", "פנסיה", [
+    /([\d,]{3,})\s*₪?[^]{0,20}מקיפה\s+חדשה\s+פנסיה/gi,
+    /מקיפה\s+חדשה\s+פנסיה[^]{0,20}([\d,]{3,})\s*₪?/gi,
+    /([\d,]{3,})\s*₪?[^]{0,20}פנסיה\s+כללית/gi,
+    /פנסיה\s+כללית[^]{0,20}([\d,]{3,})\s*₪?/gi,
+  ]);
 
-  const result = {
-    "פנסיה": 0,
-    "קופות גמל": 0,
-    "קרנות השתלמות": 0,
-  };
+  const gemelValue = extractProductValue(" " + text + " ", "גמל", [
+    /([\d,]{3,})\s*₪?[^]{0,20}גמל/gi,
+    /גמל[^]{0,20}([\d,]{3,})\s*₪?/gi,
+  ]);
 
-  numbers.forEach((num) => {
-    const type = findClosestKeyword(text, num.index);
+  const hishtalmutValue = extractProductValue(" " + text + " ", "השתלמות", [
+    /([\d,]{3,})\s*₪?[^]{0,20}השתלמות/gi,
+    /השתלמות[^]{0,20}([\d,]{3,})\s*₪?/gi,
+  ]);
 
-    if (type && num.value > 1000) {
-      result[type] += num.value;
-    }
-  });
+  const products = [
+    { name: "פנסיה", value: pensionValue },
+    { name: "קופות גמל", value: gemelValue },
+    { name: "קרנות השתלמות", value: hishtalmutValue },
+  ].filter((item) => item.value > 0);
 
-  return Object.entries(result)
-    .filter(([_, v]) => v > 0)
-    .map(([name, value]) => ({ name, value }));
+  return products;
 }
 
-function extractTotal(text) {
-  const match = text.match(/([\d,]{5,})\s*₪?\s*צברת/);
+function extractMonthlyDeposit(text) {
+  const values = findMatches(text, [
+    /מפקיד\s+כסף\s+כמה\s*([\d,]{2,})\s*₪?/gi,
+    /בסך\s*חודשי\s*([\d,]{2,})\s*₪?/gi,
+    /הפקדה\s+חודשית\s*([\d,]{2,})\s*₪?/gi,
+    /מפקידים\s+עבורי\s*([\d,]{2,})\s*₪?/gi,
+  ]);
 
-  if (match) {
-    return parseMoney(match[1]);
+  return uniqMax(values);
+}
+
+function extractName(text) {
+  const patterns = [
+    /שלום[, ]+([א-ת"'\- ]{2,40})/i,
+    /עבור\s+([א-ת"'\- ]{2,40})/i,
+    /לכבוד\s+([א-ת"'\- ]{2,40})/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      return match[1].trim().replace(/\s+/g, " ");
+    }
   }
 
-  // fallback - הכי גדול במסמך
-  const numbers = extractAllNumbers(text).map((n) => n.value);
-  return Math.max(...numbers, 0);
+  return "לא זוהה";
+}
+
+function inferProductsFallback(totalAssets, products) {
+  if (products.length > 0) return products;
+
+  return totalAssets > 0 ? [{ name: "פנסיה", value: totalAssets }] : [];
 }
 
 export default async function handler(req, res) {
@@ -79,31 +133,45 @@ export default async function handler(req, res) {
 
     const buffer = Buffer.concat(chunks);
     const pdfData = await pdf(buffer);
-    const text = cleanText(pdfData.text || "");
+    const rawText = pdfData.text || "";
+    const text = cleanText(rawText);
 
-    const products = extractProducts(text);
-    const totalAssets = extractTotal(text);
+    const totalAssets = extractTotalAssets(text);
+    const monthlyDeposit = extractMonthlyDeposit(text);
+    const fullName = extractName(text);
+    const extractedProducts = inferProductsFallback(totalAssets, extractProducts(text));
 
     return res.status(200).json({
       success: true,
       parsedData: {
-        fullName: "מזוהה מהדוח",
+        fullName,
         provider: "מסלקה פנסיונית",
-        productType: "פנסיה",
+        productType: extractedProducts[0]?.name || "פנסיה",
         balance: totalAssets,
-        monthlyDeposit: 0,
-        extractedProducts: products,
+        monthlyDeposit,
+        monthlyPensionWithDeposits: 0,
+        monthlyPensionWithoutDeposits: 0,
+        lumpSumWithDeposits: 0,
+        lumpSumWithoutDeposits: 0,
+        managementFeeBalance: 0,
+        managementFeeDeposit: 0,
+        disabilityValue: 0,
+        disabilityPercent: 0,
+        lifeCoverage: 0,
+        deathCoverage: 0,
         trackName: "כללי",
         equityPercent: 45,
+        extractedProducts,
         rawTextPreview: text.slice(0, 4000),
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("PDF parse error:", error);
 
     return res.status(500).json({
       success: false,
       error: "שגיאה בקריאת PDF",
+      details: error.message,
     });
   }
 }
