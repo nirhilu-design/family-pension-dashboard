@@ -1,22 +1,30 @@
 import React from "react";
 
 export default function ReportPage({ reportData, onBack, onResetAll }) {
+  if (!reportData || !reportData.family) {
+    return <div style={{ padding: "40px", direction: "rtl" }}>טוען נתונים...</div>;
+  }
+
   const handleExportPdf = () => {
     window.print();
   };
 
   const {
     family,
-    members,
-    products,
-    managers,
-    tracks,
-    loans,
-    beneficiaries,
-    weightedEquityExposure,
-    totalProducts,
-    totalManagers,
-    totalTracks,
+    members = [],
+    products = [],
+    managers = [],
+    tracks = [],
+    loans = { hasData: false },
+    beneficiaries = {
+      hasData: false,
+      coverageAmount: 0,
+      summary: "לא התקבל מידע",
+    },
+    weightedEquityExposure = 0,
+    totalProducts = 0,
+    totalManagers = 0,
+    totalTracks = 0,
   } = reportData;
 
   const formatCurrency = (value) =>
@@ -125,13 +133,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "grid",
       gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
       gap: "18px",
-    },
-    card: {
-      background: "#fff",
-      border: "1px solid #E2D1BF",
-      borderRadius: "16px",
-      padding: "18px",
-      boxShadow: "0 1px 3px rgba(0,33,93,0.03)",
     },
     softCard: {
       background: "#F9F7F3",
@@ -821,6 +822,13 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             <pre style={styles.debugPre}>
               {reportData?.rawParsedFiles?.[0]?.parsedData?.rawTextPreview ||
                 "אין טקסט"}
+            </pre>
+          </section>
+
+          <section style={styles.section}>
+            <h2 style={styles.h2}>Debug Parsed Data</h2>
+            <pre style={styles.debugPre}>
+              {JSON.stringify(reportData?.rawParsedFiles || [], null, 2)}
             </pre>
           </section>
         </div>
