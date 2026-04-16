@@ -232,7 +232,9 @@ function parsePolicy(policyNode) {
       relativesPension: parseNumber(
         getText(covers || policyNode, "PensionRelatives")
       ),
-      totalMonthlyCoverCost: parseNumber(getText(covers || policyNode, "TotalSum")),
+      totalMonthlyCoverCost: parseNumber(
+        getText(covers || policyNode, "TotalSum")
+      ),
     },
 
     savings: {
@@ -282,6 +284,7 @@ function parseSummary(doc) {
   const budget = doc.querySelector("Summary > Budget");
   const cover = doc.querySelector("Summary > Cover");
   const brutoSave = doc.querySelector("Summary > Save > Bruto");
+  const netoSave = doc.querySelector("Summary > Save > Neto");
 
   return {
     budget: {
@@ -306,15 +309,28 @@ function parseSummary(doc) {
     },
     save: {
       totalAccumulated: parseNumber(getText(brutoSave || doc, "TotalItraZvura")),
+
+      // השדות לפי ההגדרה שלך
+      withDepositsLumpSum: parseNumber(getText(brutoSave || doc, "TotalPidions")),
+      withoutDepositsLumpSum: parseNumber(
+        getText(netoSave || brutoSave || doc, "RetireCurrBalance")
+      ),
+      withDepositsMonthlyPension: parseNumber(
+        getText(brutoSave || doc, "PensionRetire")
+      ),
+      withoutDepositsMonthlyPension: parseNumber(
+        getText(netoSave || brutoSave || doc, "RetireCurrBalancePension")
+      ),
+
       projectedRetirementBalance: parseNumber(
-        getText(brutoSave || doc, "RetireCurrBalance")
+        getText(brutoSave || doc, "TotalPidions")
       ),
       projectedMonthlyPension: parseNumber(
         getText(brutoSave || doc, "PensionRetire")
       ),
       totalRedemptions: parseNumber(getText(brutoSave || doc, "TotalPidions")),
       retireCurrBalancePension: parseNumber(
-        getText(brutoSave || doc, "RetireCurrBalancePension")
+        getText(netoSave || brutoSave || doc, "RetireCurrBalancePension")
       ),
       before2000: parseNumber(
         getText(brutoSave || doc, "ItraZvuraTotalTagBefore2000")
@@ -513,10 +529,6 @@ export function buildLegacyReportData(parsedFiles) {
     ...lifeInsurancePolicies,
   ]);
 
-  const coeffPolicies = flatPolicies.filter(
-    (policy) => !isNoCoeffPolicy(policy)
-  );
-
   const totalAssets = sumNullable(
     files.map((f) => f.summary?.save?.totalAccumulated)
   );
@@ -525,33 +537,25 @@ export function buildLegacyReportData(parsedFiles) {
     files.map((f) => f.summary?.budget?.sumCost)
   );
 
+  // מיפוי ישיר לפי השדות שהגדרת
   const monthlyPensionWithDeposits = sumNullable(
-    files.map((f) => f.summary?.save?.projectedMonthlyPension)
+    files.map((f) => f.summary?.save?.withDepositsMonthlyPension)
   );
 
-  // עם המשך הפקדות = מתוך ה-summary של כל קובץ
   const projectedLumpSumWithDeposits = sumNullable(
-    files.map((f) => f.summary?.save?.projectedRetirementBalance)
+    files.map((f) => f.summary?.save?.withDepositsLumpSum)
   );
 
-  // ללא המשך הפקדות = צבירה נוכחית של המוצרים ללא מקדם
+  const monthlyPensionWithoutDeposits = sumNullable(
+    files.map((f) => f.summary?.save?.withoutDepositsMonthlyPension)
+  );
+
   const projectedLumpSumWithoutDeposits = sumNullable(
-    noCoeffPolicies.map((p) => p.savings?.totalAccumulated)
+    files.map((f) => f.summary?.save?.withoutDepositsLumpSum)
   );
 
-  // סכום ביטוח = צבירה נוכחית של כל המוצרים ללא מקדם + ביטוח חיים
   const totalInsurance = sumNullable(
     insurancePolicies.map((p) => p.savings?.totalAccumulated)
-  );
-
-  // קצבה ללא המשך הפקדות = צבירה נוכחית / מקדם רק למוצרים עם מקדם
-  const monthlyPensionWithoutDeposits = sumNullable(
-    coeffPolicies.map((p) => {
-      const coeff = p.savings?.hCoeff;
-      const accumulated = p.savings?.totalAccumulated;
-      if (!coeff || !accumulated) return 0;
-      return accumulated / coeff;
-    })
   );
 
   const retirementAges = Array.from(
@@ -579,9 +583,6 @@ export function buildLegacyReportData(parsedFiles) {
       ...memberNoCoeff,
       ...memberLife,
     ]);
-    const memberCoeff = memberPolicies.filter(
-      (policy) => !isNoCoeffPolicy(policy)
-    );
 
     const assets = file.summary?.save?.totalAccumulated || 0;
     const monthlyDepositsMember = file.summary?.budget?.sumCost || 0;
@@ -614,28 +615,15 @@ export function buildLegacyReportData(parsedFiles) {
       monthlyDeposits: monthlyDepositsMember,
       assets,
 
-      // עם המשך הפקדות = מתוך summary
+      // מיפוי ישיר לפי השדות שהגדרת
       monthlyPensionWithDeposits:
-        file.summary?.save?.projectedMonthlyPension || 0,
-
-      // ללא המשך הפקדות = צבירה נוכחית / מקדם
-      monthlyPensionWithoutDeposits: sumNullable(
-        memberCoeff.map((p) => {
-          const coeff = p.savings?.hCoeff;
-          const accumulated = p.savings?.totalAccumulated;
-          if (!coeff || !accumulated) return 0;
-          return accumulated / coeff;
-        })
-      ),
-
-      // עם המשך הפקדות = מתוך summary
+        file.summary?.save?.withDepositsMonthlyPension || 0,
+      monthlyPensionWithoutDeposits:
+        file.summary?.save?.withoutDepositsMonthlyPension || 0,
       lumpSumWithDeposits:
-        file.summary?.save?.projectedRetirementBalance || 0,
-
-      // ללא המשך הפקדות = צבירה נוכחית של ללא מקדם
-      lumpSumWithoutDeposits: sumNullable(
-        memberNoCoeff.map((p) => p.savings?.totalAccumulated)
-      ),
+        file.summary?.save?.withDepositsLumpSum || 0,
+      lumpSumWithoutDeposits:
+        file.summary?.save?.withoutDepositsLumpSum || 0,
 
       deathCoverage,
       disabilityValue,
