@@ -55,15 +55,8 @@ function sectionBetween(lines, startPhrase, endPhrases = [], maxLines = 40) {
   return lines.slice(start, end);
 }
 
+// ✅ עמוד 1: לוקחים רק את טבלת המוצרים, וסוכמים אותה
 function parsePage1(page1) {
-  const totalLine =
-    firstLineContaining(page1, "עד כה, צברת") ||
-    firstLineContaining(page1, "צברת") ||
-    firstLineContaining(page1, "חיסכון פנסיוני");
-
-  const totalCandidates = numbersInLine(totalLine).filter((n) => n >= 100000);
-  const totalAssets = totalCandidates[0] || 0;
-
   const products = [];
 
   for (const line of page1) {
@@ -84,9 +77,12 @@ function parsePage1(page1) {
     }
   }
 
+  const cleanProducts = products.filter((p) => p.value > 0);
+  const totalAssets = cleanProducts.reduce((sum, p) => sum + p.value, 0);
+
   return {
     totalAssets,
-    products: products.filter((p) => p.value > 0),
+    products: cleanProducts,
   };
 }
 
