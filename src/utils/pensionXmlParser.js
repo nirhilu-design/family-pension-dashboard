@@ -31,7 +31,7 @@ function getText(root, tag) {
 }
 
 function stripHtml(value) {
-  return value.replace(/<[^>]*>/g, "").trim();
+  return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
 
 function normalizeText(value) {
@@ -45,7 +45,7 @@ function extractBirthDate(value) {
 }
 
 function parseNumber(value) {
-  if (!value) return null;
+  if (value === null || value === undefined) return null;
 
   const clean = normalizeText(value)
     .replace(/₪/g, "")
@@ -91,7 +91,7 @@ function parseInvestPlans(policyNode) {
   const plansRoot = policyNode.querySelector("InvestPlans");
   if (!plansRoot) return [];
 
-  const planNodes = Array.from(plansRoot.querySelectorAll(":scope > InvestPlan"));
+  const planNodes = Array.from(plansRoot.querySelectorAll("InvestPlan"));
 
   return planNodes.map((plan) => ({
     mofid: getText(plan, "MOFID"),
@@ -294,13 +294,4 @@ export function buildFamilyDashboardData(members) {
     totals,
     policies: flatPolicies,
   };
-}
-
-export function groupPoliciesByProductType(policies) {
-  return policies.reduce((acc, policy) => {
-    const key = policy.productType || "ללא סוג";
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(policy);
-    return acc;
-  }, {});
 }
