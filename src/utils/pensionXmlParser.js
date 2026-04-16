@@ -104,14 +104,14 @@ function inferEquityFromTrackName(name = "") {
   if (
     text.includes("כללי") ||
     text.includes("general") ||
-    text.includes("אג\"ח + מניות") ||
+    text.includes('אג"ח + מניות') ||
     text.includes("משולב")
   ) {
     return 45;
   }
 
   if (
-    text.includes("אג\"ח") ||
+    text.includes('אג"ח') ||
     text.includes("bond") ||
     text.includes("שקלי") ||
     text.includes("כספי")
@@ -129,8 +129,14 @@ function parseInvestPlans(policyNode) {
   const planNodes = Array.from(plansRoot.querySelectorAll("InvestPlan"));
 
   return planNodes.map((plan) => {
-    const exposures = parseInvestProperties(plan, "Properties > Exposures > Property");
-    const mainGroups = parseInvestProperties(plan, "Properties > MainGroups > Property");
+    const exposures = parseInvestProperties(
+      plan,
+      "Properties > Exposures > Property"
+    );
+    const mainGroups = parseInvestProperties(
+      plan,
+      "Properties > MainGroups > Property"
+    );
 
     const equityExposure =
       exposures.find((p) => (p.name || "").includes("מניות"))?.rate ??
@@ -193,35 +199,63 @@ function parsePolicy(policyNode) {
     monthlyDeposits: {
       worker: parseNumber(getText(budgets || policyNode, "TotalTagWorker")),
       employer: parseNumber(getText(budgets || policyNode, "TotalTagEmployer")),
-      compensation: parseNumber(getText(budgets || policyNode, "TotalCompensetion")),
+      compensation: parseNumber(
+        getText(budgets || policyNode, "TotalCompensetion")
+      ),
       sumCost: parseNumber(getText(budgets || policyNode, "SumCost")),
-      disabilityWorkerCost: parseNumber(getText(budgets || policyNode, "DisCost1")),
-      disabilityEmployerCost: parseNumber(getText(budgets || policyNode, "DisCostEmployer1")),
+      disabilityWorkerCost: parseNumber(
+        getText(budgets || policyNode, "DisCost1")
+      ),
+      disabilityEmployerCost: parseNumber(
+        getText(budgets || policyNode, "DisCostEmployer1")
+      ),
       rateWorker: parseNumber(getText(budgets || policyNode, "RateTagWorker")),
-      rateEmployer: parseNumber(getText(budgets || policyNode, "RateTagEmployer")),
-      rateCompensation: parseNumber(getText(budgets || policyNode, "RateCompensetion")),
+      rateEmployer: parseNumber(
+        getText(budgets || policyNode, "RateTagEmployer")
+      ),
+      rateCompensation: parseNumber(
+        getText(budgets || policyNode, "RateCompensetion")
+      ),
     },
 
     coverage: {
       totalInsurance: parseNumber(getText(covers || policyNode, "TotalBituah")),
       totalRisk: parseNumber(getText(covers || policyNode, "TotalRisk")),
-      disabilityPension: parseNumber(getText(covers || policyNode, "PensionDisability")),
-      disabilityCost: parseNumber(getText(covers || policyNode, "CostForDisability")),
+      disabilityPension: parseNumber(
+        getText(covers || policyNode, "PensionDisability")
+      ),
+      disabilityCost: parseNumber(
+        getText(covers || policyNode, "CostForDisability")
+      ),
       orphanPension: parseNumber(getText(covers || policyNode, "PensionOrphan")),
       widowPension: parseNumber(getText(covers || policyNode, "PensionAlmana")),
-      relativesPension: parseNumber(getText(covers || policyNode, "PensionRelatives")),
+      relativesPension: parseNumber(
+        getText(covers || policyNode, "PensionRelatives")
+      ),
       totalMonthlyCoverCost: parseNumber(getText(covers || policyNode, "TotalSum")),
     },
 
     savings: {
-      before2000: parseNumber(getText(save || policyNode, "ItraZvuraTotalTagBefore2000")),
-      after2000: parseNumber(getText(save || policyNode, "ItraZvuraTotalTagAfter2000")),
-      compensation: parseNumber(getText(save || policyNode, "ItraZvuraCompensetion")),
+      before2000: parseNumber(
+        getText(save || policyNode, "ItraZvuraTotalTagBefore2000")
+      ),
+      after2000: parseNumber(
+        getText(save || policyNode, "ItraZvuraTotalTagAfter2000")
+      ),
+      compensation: parseNumber(
+        getText(save || policyNode, "ItraZvuraCompensetion")
+      ),
       totalAccumulated: parseNumber(getText(save || policyNode, "TotalItraZvura")),
-      projectedRetirementBalance: parseNumber(getText(save || policyNode, "RetireCurrBalance")),
-      projectedMonthlyPension: parseNumber(getText(save || policyNode, "PensionRetire")),
+      projectedRetirementBalance: parseNumber(
+        getText(save || policyNode, "RetireCurrBalance")
+      ),
+      projectedMonthlyPension: parseNumber(
+        getText(save || policyNode, "PensionRetire")
+      ),
       totalRedemptions: parseNumber(getText(save || policyNode, "TotalPidions")),
-      retireCurrBalancePension: parseNumber(getText(save || policyNode, "RetireCurrBalancePension")),
+      retireCurrBalancePension: parseNumber(
+        getText(save || policyNode, "RetireCurrBalancePension")
+      ),
       hCoeff: parseNumber(getText(save || policyNode, "HCoff")),
     },
 
@@ -231,8 +265,12 @@ function parsePolicy(policyNode) {
       annuityType: getText(details || policyNode, "AnnuityType"),
       retireAge: parseIntSafe(getText(details || policyNode, "RetireAge")),
       agePremiaYear: parseIntSafe(getText(details || policyNode, "AgePremiaYear")),
-      managementFeeFromDeposit: parseNumber(getText(details || policyNode, "DNihulPremia")),
-      managementFeeFromBalance: parseNumber(getText(details || policyNode, "DNFromHon")),
+      managementFeeFromDeposit: parseNumber(
+        getText(details || policyNode, "DNihulPremia")
+      ),
+      managementFeeFromBalance: parseNumber(
+        getText(details || policyNode, "DNFromHon")
+      ),
       expectedReturn: parseNumber(getText(details || policyNode, "GetYield")),
     },
 
@@ -252,7 +290,9 @@ function parseSummary(doc) {
       compensation: parseNumber(getText(budget || doc, "TotalCompensetion")),
       sumCost: parseNumber(getText(budget || doc, "SumCost")),
       disabilityWorkerCost: parseNumber(getText(budget || doc, "DisCost1")),
-      disabilityEmployerCost: parseNumber(getText(budget || doc, "DisCostEmployer1")),
+      disabilityEmployerCost: parseNumber(
+        getText(budget || doc, "DisCostEmployer1")
+      ),
     },
     cover: {
       totalInsurance: parseNumber(getText(cover || doc, "TotalBituah")),
@@ -266,13 +306,25 @@ function parseSummary(doc) {
     },
     save: {
       totalAccumulated: parseNumber(getText(brutoSave || doc, "TotalItraZvura")),
-      projectedRetirementBalance: parseNumber(getText(brutoSave || doc, "RetireCurrBalance")),
-      projectedMonthlyPension: parseNumber(getText(brutoSave || doc, "PensionRetire")),
+      projectedRetirementBalance: parseNumber(
+        getText(brutoSave || doc, "RetireCurrBalance")
+      ),
+      projectedMonthlyPension: parseNumber(
+        getText(brutoSave || doc, "PensionRetire")
+      ),
       totalRedemptions: parseNumber(getText(brutoSave || doc, "TotalPidions")),
-      retireCurrBalancePension: parseNumber(getText(brutoSave || doc, "RetireCurrBalancePension")),
-      before2000: parseNumber(getText(brutoSave || doc, "ItraZvuraTotalTagBefore2000")),
-      after2000: parseNumber(getText(brutoSave || doc, "ItraZvuraTotalTagAfter2000")),
-      compensation: parseNumber(getText(brutoSave || doc, "ItraZvuraCompensetion")),
+      retireCurrBalancePension: parseNumber(
+        getText(brutoSave || doc, "RetireCurrBalancePension")
+      ),
+      before2000: parseNumber(
+        getText(brutoSave || doc, "ItraZvuraTotalTagBefore2000")
+      ),
+      after2000: parseNumber(
+        getText(brutoSave || doc, "ItraZvuraTotalTagAfter2000")
+      ),
+      compensation: parseNumber(
+        getText(brutoSave || doc, "ItraZvuraCompensetion")
+      ),
     },
   };
 }
@@ -298,7 +350,9 @@ export function parsePensionXml(rawXml, fileName = "") {
   };
 
   const policyNodes = Array.from(doc.querySelectorAll("Policies > Policy"));
-  const policies = policyNodes.map(parsePolicy).sort((a, b) => a.rowNum - b.rowNum);
+  const policies = policyNodes
+    .map(parsePolicy)
+    .sort((a, b) => a.rowNum - b.rowNum);
   const summary = parseSummary(doc);
 
   return {
@@ -336,6 +390,7 @@ function groupBySum(items, getKey, getValue) {
 
 function uniquePolicies(policies) {
   const seen = new Set();
+
   return policies.filter((policy) => {
     const key = [
       policy.ownerId || "",
@@ -385,7 +440,9 @@ function buildTracks(flatPolicies) {
       tracksRaw.push({
         name: policy.planName || policy.productType || "מסלול לא ידוע",
         value: policyValue,
-        equityPercent: inferEquityFromTrackName(policy.planName || policy.productType || ""),
+        equityPercent: inferEquityFromTrackName(
+          policy.planName || policy.productType || ""
+        ),
       });
       return;
     }
@@ -394,9 +451,15 @@ function buildTracks(flatPolicies) {
 
     plans.forEach((plan) => {
       tracksRaw.push({
-        name: plan.trackName || plan.planName || policy.planName || "מסלול לא ידוע",
+        name:
+          plan.trackName ||
+          plan.planName ||
+          policy.planName ||
+          "מסלול לא ידוע",
         value: policyValue / divisor,
-        equityPercent: plan.equityExposure ?? inferEquityFromTrackName(plan.trackName || plan.planName || ""),
+        equityPercent:
+          plan.equityExposure ??
+          inferEquityFromTrackName(plan.trackName || plan.planName || ""),
       });
     });
   });
@@ -411,7 +474,8 @@ function buildTracks(flatPolicies) {
     };
 
     current.value += track.value || 0;
-    current.weightedEquity += (track.value || 0) * (track.equityPercent || 0);
+    current.weightedEquity +=
+      (track.value || 0) * (track.equityPercent || 0);
 
     grouped.set(track.name, current);
   });
@@ -421,7 +485,9 @@ function buildTracks(flatPolicies) {
       name: track.name,
       value: track.value,
       equityPercent:
-        track.value > 0 ? Math.round(track.weightedEquity / track.value) : 0,
+        track.value > 0
+          ? Math.round(track.weightedEquity / track.value)
+          : 0,
     }))
     .filter((track) => track.value > 0)
     .sort((a, b) => b.value - a.value);
@@ -447,26 +513,38 @@ export function buildLegacyReportData(parsedFiles) {
     ...lifeInsurancePolicies,
   ]);
 
-  const coeffPolicies = flatPolicies.filter((policy) => !isNoCoeffPolicy(policy));
+  const coeffPolicies = flatPolicies.filter(
+    (policy) => !isNoCoeffPolicy(policy)
+  );
 
-  const totalAssets = sumNullable(files.map((f) => f.summary?.save?.totalAccumulated));
-  const monthlyDeposits = sumNullable(files.map((f) => f.summary?.budget?.sumCost));
+  const totalAssets = sumNullable(
+    files.map((f) => f.summary?.save?.totalAccumulated)
+  );
+
+  const monthlyDeposits = sumNullable(
+    files.map((f) => f.summary?.budget?.sumCost)
+  );
+
   const monthlyPensionWithDeposits = sumNullable(
     files.map((f) => f.summary?.save?.projectedMonthlyPension)
   );
 
+  // עם המשך הפקדות = מתוך ה-summary של כל קובץ
   const projectedLumpSumWithDeposits = sumNullable(
-    noCoeffPolicies.map((p) => p.savings?.projectedRetirementBalance)
+    files.map((f) => f.summary?.save?.projectedRetirementBalance)
   );
 
+  // ללא המשך הפקדות = צבירה נוכחית של המוצרים ללא מקדם
   const projectedLumpSumWithoutDeposits = sumNullable(
     noCoeffPolicies.map((p) => p.savings?.totalAccumulated)
   );
 
+  // סכום ביטוח = צבירה נוכחית של כל המוצרים ללא מקדם + ביטוח חיים
   const totalInsurance = sumNullable(
     insurancePolicies.map((p) => p.savings?.totalAccumulated)
   );
 
+  // קצבה ללא המשך הפקדות = צבירה נוכחית / מקדם רק למוצרים עם מקדם
   const monthlyPensionWithoutDeposits = sumNullable(
     coeffPolicies.map((p) => {
       const coeff = p.savings?.hCoeff;
@@ -485,7 +563,9 @@ export function buildLegacyReportData(parsedFiles) {
   ).sort((a, b) => a - b);
 
   const retirementAgeLabel = retirementAges.length
-    ? `התחזית מבוססת על גילי הפרישה שהוגדרו בדוחות (${retirementAges.join(", ")}).`
+    ? `התחזית מבוססת על גילי הפרישה שהוגדרו בדוחות (${retirementAges.join(
+        ", "
+      )}).`
     : "התחזית מבוססת על גילי הפרישה שהוגדרו בדוחות.";
 
   const members = files.map((file) => {
@@ -495,8 +575,13 @@ export function buildLegacyReportData(parsedFiles) {
 
     const memberNoCoeff = memberPolicies.filter(isNoCoeffPolicy);
     const memberLife = memberPolicies.filter(isLifeInsurancePolicy);
-    const memberInsurancePolicies = uniquePolicies([...memberNoCoeff, ...memberLife]);
-    const memberCoeff = memberPolicies.filter((policy) => !isNoCoeffPolicy(policy));
+    const memberInsurancePolicies = uniquePolicies([
+      ...memberNoCoeff,
+      ...memberLife,
+    ]);
+    const memberCoeff = memberPolicies.filter(
+      (policy) => !isNoCoeffPolicy(policy)
+    );
 
     const assets = file.summary?.save?.totalAccumulated || 0;
     const monthlyDepositsMember = file.summary?.budget?.sumCost || 0;
@@ -518,7 +603,9 @@ export function buildLegacyReportData(parsedFiles) {
     );
 
     const disabilityPercent =
-      salaryBase > 0 ? Math.round((disabilityValue / salaryBase) * 100) : 0;
+      salaryBase > 0
+        ? Math.round((disabilityValue / salaryBase) * 100)
+        : 0;
 
     return {
       name: file.member.fullName || "ללא שם",
@@ -526,7 +613,12 @@ export function buildLegacyReportData(parsedFiles) {
         totalAssets > 0 ? Math.round((assets / totalAssets) * 100) : 0,
       monthlyDeposits: monthlyDepositsMember,
       assets,
-      monthlyPensionWithDeposits: file.summary?.save?.projectedMonthlyPension || 0,
+
+      // עם המשך הפקדות = מתוך summary
+      monthlyPensionWithDeposits:
+        file.summary?.save?.projectedMonthlyPension || 0,
+
+      // ללא המשך הפקדות = צבירה נוכחית / מקדם
       monthlyPensionWithoutDeposits: sumNullable(
         memberCoeff.map((p) => {
           const coeff = p.savings?.hCoeff;
@@ -535,12 +627,16 @@ export function buildLegacyReportData(parsedFiles) {
           return accumulated / coeff;
         })
       ),
-      lumpSumWithDeposits: sumNullable(
-        memberNoCoeff.map((p) => p.savings?.projectedRetirementBalance)
-      ),
+
+      // עם המשך הפקדות = מתוך summary
+      lumpSumWithDeposits:
+        file.summary?.save?.projectedRetirementBalance || 0,
+
+      // ללא המשך הפקדות = צבירה נוכחית של ללא מקדם
       lumpSumWithoutDeposits: sumNullable(
         memberNoCoeff.map((p) => p.savings?.totalAccumulated)
       ),
+
       deathCoverage,
       disabilityValue,
       disabilityPercent,
@@ -568,7 +664,8 @@ export function buildLegacyReportData(parsedFiles) {
     totalTracks > 0
       ? Math.round(
           tracks.reduce(
-            (acc, track) => acc + (track.value || 0) * (track.equityPercent || 0),
+            (acc, track) =>
+              acc + (track.value || 0) * (track.equityPercent || 0),
             0
           ) / totalTracks
         )
