@@ -5,27 +5,17 @@ function extractNumber(str) {
   return Number(String(str).replace(/[^\d]/g, "")) || 0;
 }
 
-function normalizeText(text) {
+function splitLines(text) {
   return String(text || "")
     .replace(/\u00A0/g, " ")
     .replace(/\r/g, "")
-    .replace(/[ \t]+/g, " ")
-    .trim();
-}
-
-function splitLines(text) {
-  return String(text || "")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 }
 
-function lineNumbers(line) {
+function numbersInLine(line) {
   return (line.match(/[\d,]+/g) || []).map(extractNumber).filter(Boolean);
-}
-
-function firstLineContaining(lines, phrase) {
-  return lines.find((line) => line.includes(phrase)) || "";
 }
 
 function sectionBetween(lines, startPhrase, endPhrases = [], maxLines = 40) {
@@ -33,7 +23,6 @@ function sectionBetween(lines, startPhrase, endPhrases = [], maxLines = 40) {
   if (start === -1) return [];
 
   let end = Math.min(lines.length, start + maxLines);
-
   for (let i = start + 1; i < Math.min(lines.length, start + maxLines); i++) {
     if (endPhrases.some((p) => lines[i].includes(p))) {
       end = i;
@@ -45,9 +34,11 @@ function sectionBetween(lines, startPhrase, endPhrases = [], maxLines = 40) {
 }
 
 function parseTotalAssets(lines) {
-  const line = firstLineContaining(lines, "צברת");
-  const nums = lineNumbers(line).filter((n) => n >= 100000);
-  return nums.length ? nums[nums.length - 1] : 0;
+  const line = lines.find((l) => l.includes("צברת"));
+  if (!line) return 0;
+
+  const nums = numbersInLine(line).filter((n) => n >= 100000);
+  return nums.length ? nums[0] : 0;
 }
 
 function parseProducts(lines) {
@@ -61,7 +52,7 @@ function parseProducts(lines) {
   const products = [];
 
   for (const line of section) {
-    const nums = lineNumbers(line);
+    const nums = numbersInLine(line);
     if (!nums.length) continue;
     const value = nums[nums.length - 1];
 
@@ -82,8 +73,10 @@ function parseProducts(lines) {
 }
 
 function parseMonthlyDeposit(lines) {
-  const line = firstLineContaining(lines, "הופקדו");
-  const nums = lineNumbers(line).filter((n) => n >= 1000);
+  const line = lines.find((l) => l.includes("הופקדו"));
+  if (!line) return 0;
+
+  const nums = numbersInLine(line).filter((n) => n >= 1000);
   return nums.length ? nums[0] : 0;
 }
 
@@ -95,9 +88,8 @@ function parseRetirement(lines) {
     25
   );
 
-  const joined = section.join(" ");
-  const nums = (joined.match(/[\d,]+/g) || [])
-    .map(extractNumber)
+  const nums = section
+    .flatMap(numbersInLine)
     .filter((n) => n >= 1000);
 
   return {
@@ -115,14 +107,17 @@ function parseDisability(lines) {
     ["כמה כסף יהיה למשפחתי אם אמות?", "בנוסף לסכום ההוני"],
     20
   );
-  const joined = section.join(" ");
-  const nums = (joined.match(/[\d,]+/g) || [])
-    .map(extractNumber)
+
+  const nums = section
+    .flatMap(numbersInLine)
     .filter((n) => n >= 1000);
+
+  const joined = section.join(" ");
+  const percentMatch = joined.match(/(\d{1,3})%/);
 
   return {
     disabilityValue: nums[0] || 0,
-    disabilityPercent: extractNumber((joined.match(/(\d{1,3})%/) || [])[1] || 0),
+    disabilityPercent: percentMatch ? extractNumber(percentMatch[1]) : 0,
   };
 }
 
@@ -134,9 +129,8 @@ function parseDeathCoverage(lines) {
     25
   );
 
-  const joined = section.join(" ");
-  const nums = (joined.match(/[\d,]+/g) || [])
-    .map(extractNumber)
+  const nums = section
+    .flatMap(numbersInLine)
     .filter((n) => n >= 1000);
 
   return nums[0] || 0;
@@ -150,31 +144,23 @@ function parseFamilyCoverage(lines) {
     20
   );
 
-  const spouseLine = firstLineContaining(section, "לאישה / הבעל");
-  const childLine = firstLineContaining(section, "לכל ילד");
-
   let spouseCoverageMonthly = 0;
   let childCoverageMonthly = 0;
 
-  if (spouseLine) {
-    const nums = lineNumbers(spouseLine).filter((n) => n >= 1000);
-    spouseCoverageMonthly = nums[0] || 0;
-  }
-
-  if (childLine) {
-    const nums = lineNumbers(childLine).filter((n) => n >= 1000);
-    childCoverageMonthly = nums[0] || 0;
+  for (const line of section) {
+    if (line.includes("לאישה / הבעל")) {
+      spouseCoverageMonthly = numbersInLine(line).find((n) => n >= 1000) || 0;
+    }
+    if (line.includes("לכל ילד")) {
+      childCoverageMonthly = numbersInLine(line).find((n) => n >= 1000) || 0;
+    }
   }
 
   if (!spouseCoverageMonthly || !childCoverageMonthly) {
-    const joined = section.join(" ");
-    const nums = (joined.match(/[\d,]+/g) || [])
-      .map(extractNumber)
-      .filter((n) => n >= 1000);
-
+    const nums = section.flatMap(numbersInLine).filter((n) => n >= 1000);
     if (nums.length >= 2) {
-      spouseCoverageMonthly = spouseCoverageMonthly || Math.max(nums[0], nums[1]);
-      childCoverageMonthly = childCoverageMonthly || Math.min(nums[0], nums[1]);
+      spouseCoverageMonthly ||= Math.max(nums[0], nums[1]);
+      childCoverageMonthly ||= Math.min(nums[0], nums[1]);
     }
   }
 
@@ -182,7 +168,7 @@ function parseFamilyCoverage(lines) {
 }
 
 function parseInsuranceCosts(lines) {
-  const insuranceSection = sectionBetween(
+  const section = sectionBetween(
     lines,
     "אז כמה כל זה עולה לי?",
     ["כמה דמי ניהול אני משלם?", "כמה דמי ניהול אני משלמת?"],
@@ -192,13 +178,13 @@ function parseInsuranceCosts(lines) {
   let insuranceCostMonthly = 0;
   let lifeInsuranceCostMonthly = 0;
 
-  for (const line of insuranceSection) {
+  for (const line of section) {
     if (line.includes("עלות חודשית אבדן כושר עבודה")) {
-      const nums = lineNumbers(line).filter((n) => n > 0);
+      const nums = numbersInLine(line);
       insuranceCostMonthly = nums[nums.length - 1] || 0;
     }
     if (line.includes("עלות חודשית ביטוח חיים")) {
-      const nums = lineNumbers(line).filter((n) => n > 0);
+      const nums = numbersInLine(line);
       lifeInsuranceCostMonthly = nums[nums.length - 1] || 0;
     }
   }
@@ -208,11 +194,12 @@ function parseInsuranceCosts(lines) {
 
 function parseAnnualManagementFees(lines) {
   const line =
-    firstLineContaining(lines, "החודשים האחרונים שילמת") ||
-    firstLineContaining(lines, "החודשים האחרונים שילם");
+    lines.find((l) => l.includes("החודשים האחרונים שילמת")) ||
+    lines.find((l) => l.includes("החודשים האחרונים שילם"));
 
-  const nums = lineNumbers(line).filter((n) => n > 0);
-  return nums.length ? nums[nums.length - 1] : 0;
+  if (!line) return 0;
+  const nums = numbersInLine(line);
+  return nums[nums.length - 1] || 0;
 }
 
 function parseManagementFeeRates(lines) {
@@ -252,9 +239,8 @@ export default async function handler(req, res) {
 
     const buffer = Buffer.from(fileBase64, "base64");
     const pdfData = await pdfParse(buffer);
-
-    const rawText = normalizeText(pdfData.text || "");
-    const lines = splitLines(pdfData.text || "");
+    const rawText = String(pdfData.text || "");
+    const lines = splitLines(rawText);
 
     const balance = parseTotalAssets(lines);
     const extractedProducts = parseProducts(lines);
