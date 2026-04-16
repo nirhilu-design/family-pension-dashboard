@@ -1,6 +1,6 @@
 // src/UploadPage.jsx
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   parseMultiplePensionXmlFiles,
   buildFamilyDashboardData,
@@ -10,21 +10,84 @@ export default function UploadPage({ setDashboardData, setParsedFiles }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handleFileSelection = (event) => {
-    const files = Array.from(event.target.files || []).filter((file) =>
+  const fileInputRef = useRef(null);
+
+  const addFiles = (files) => {
+    const xmlFiles = Array.from(files || []).filter((file) =>
       file.name.toLowerCase().endsWith(".xml")
     );
 
-    setError("");
-
-    if (!files.length) {
-      setSelectedFiles([]);
-      setError("לא נבחרו קבצי XML");
+    if (!xmlFiles.length) {
+      setError("יש לבחור קבצי XML בלבד");
       return;
     }
 
-    setSelectedFiles(files);
+    setError("");
+
+    setSelectedFiles((prev) => {
+      const existingKeys = new Set(
+        prev.map((file) => `${file.name}_${file.size}_${file.lastModified}`)
+      );
+
+      const newFiles = xmlFiles.filter((file) => {
+        const key = `${file.name}_${file.size}_${file.lastModified}`;
+        return !existingKeys.has(key);
+      });
+
+      return [...prev, ...newFiles];
+    });
+  };
+
+  const handleFileSelection = (event) => {
+    addFiles(event.target.files);
+    event.target.value = "";
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+    addFiles(event.dataTransfer.files);
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const related = event.relatedTarget;
+    if (!event.currentTarget.contains(related)) {
+      setIsDragging(false);
+    }
+  };
+
+  const removeFile = (fileToRemove) => {
+    setSelectedFiles((prev) =>
+      prev.filter(
+        (file) =>
+          !(
+            file.name === fileToRemove.name &&
+            file.size === fileToRemove.size &&
+            file.lastModified === fileToRemove.lastModified
+          )
+      )
+    );
+  };
+
+  const clearAllFiles = () => {
+    setSelectedFiles([]);
+    setError("");
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
   };
 
   const handleAnalyzeFiles = async () => {
@@ -40,9 +103,6 @@ export default function UploadPage({ setDashboardData, setParsedFiles }) {
 
       const parsedMembers = await parseMultiplePensionXmlFiles(selectedFiles);
       const familyData = buildFamilyDashboardData(parsedMembers);
-
-      console.log("parsedMembers", parsedMembers);
-      console.log("familyData", familyData);
 
       setParsedFiles(parsedMembers);
       setDashboardData(familyData);
@@ -66,127 +126,303 @@ export default function UploadPage({ setDashboardData, setParsedFiles }) {
     >
       <div
         style={{
-          maxWidth: 900,
+          maxWidth: 980,
           margin: "0 auto",
-          background: "#fff",
-          borderRadius: 24,
+          background: "#ffffff",
+          borderRadius: 28,
           padding: 32,
-          boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-          border: "1px solid #e6e8f0",
+          boxShadow: "0 12px 36px rgba(0,0,0,0.08)",
+          border: "1px solid #e7ebf3",
         }}
       >
-        <h1
-          style={{
-            margin: 0,
-            marginBottom: 12,
-            fontSize: 34,
-            color: "#0d2c6c",
-          }}
-        >
-          דוח פנסיוני משפחתי
-        </h1>
+        <div style={{ marginBottom: 24 }}>
+          <h1
+            style={{
+              margin: 0,
+              color: "#0d2c6c",
+              fontSize: 36,
+              fontWeight: 900,
+            }}
+          >
+            העלאת קבצי XML
+          </h1>
 
-        <p
-          style={{
-            marginTop: 0,
-            marginBottom: 24,
-            color: "#5b6480",
-            fontSize: 16,
-            lineHeight: 1.7,
-          }}
-        >
-          בחר קובץ XML אחד או יותר, ואז לחץ על כפתור הניתוח כדי להפיק דוח אישי או
-          משפחתי מאוחד.
-        </p>
+          <p
+            style={{
+              marginTop: 12,
+              marginBottom: 0,
+              color: "#5f6b85",
+              fontSize: 16,
+              lineHeight: 1.8,
+            }}
+          >
+            אפשר להעלות קבצים אחד-אחד, לבחור כמה יחד, או פשוט לגרור לכאן.
+            המערכת תשמור את כל הקבצים שנבחרו עד שתלחץ על “הפק דוח”.
+          </p>
+        </div>
 
         <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
           style={{
-            border: "2px dashed #c8d0e6",
-            borderRadius: 20,
-            padding: 30,
+            border: isDragging ? "2px solid #0d2c6c" : "2px dashed #cbd4e6",
+            background: isDragging ? "#eef4ff" : "#f9fbff",
+            borderRadius: 24,
+            padding: "34px 24px",
             textAlign: "center",
-            background: "#f9fbff",
+            transition: "all 0.2s ease",
+            marginBottom: 20,
           }}
         >
           <input
+            ref={fileInputRef}
             type="file"
             multiple
             accept=".xml"
             onChange={handleFileSelection}
-            style={{
-              fontSize: 16,
-              padding: 12,
-              width: "100%",
-              marginBottom: 18,
-            }}
+            style={{ display: "none" }}
           />
 
-          {selectedFiles.length > 0 && (
-            <div
-              style={{
-                textAlign: "right",
-                background: "#fff",
-                border: "1px solid #e3e8f5",
-                borderRadius: 16,
-                padding: 16,
-                marginBottom: 18,
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: 700,
-                  color: "#0d2c6c",
-                  marginBottom: 10,
-                }}
-              >
-                קבצים שנבחרו:
-              </div>
+          <div
+            style={{
+              fontSize: 42,
+              marginBottom: 10,
+            }}
+          >
+            📂
+          </div>
 
-              {selectedFiles.map((file, index) => (
-                <div
-                  key={`${file.name}-${index}`}
-                  style={{
-                    padding: "8px 0",
-                    borderBottom:
-                      index !== selectedFiles.length - 1
-                        ? "1px solid #eef2fa"
-                        : "none",
-                    color: "#374151",
-                    fontSize: 15,
-                  }}
-                >
-                  {file.name}
-                </div>
-              ))}
-            </div>
-          )}
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              color: "#0d2c6c",
+              marginBottom: 10,
+            }}
+          >
+            גרור קבצי XML לכאן
+          </div>
+
+          <div
+            style={{
+              color: "#69758e",
+              fontSize: 15,
+              marginBottom: 18,
+            }}
+          >
+            או בחר קבצים ידנית מהמחשב
+          </div>
 
           <button
-            onClick={handleAnalyzeFiles}
-            disabled={loading || selectedFiles.length === 0}
+            type="button"
+            onClick={openFilePicker}
             style={{
-              background:
-                loading || selectedFiles.length === 0 ? "#b9c3da" : "#0d2c6c",
+              background: "#0d2c6c",
               color: "#fff",
               border: "none",
               borderRadius: 14,
-              padding: "14px 22px",
-              fontSize: 16,
+              padding: "12px 20px",
+              fontSize: 15,
               fontWeight: 700,
-              cursor:
-                loading || selectedFiles.length === 0 ? "not-allowed" : "pointer",
+              cursor: "pointer",
             }}
           >
-            {loading ? "מנתח קבצים..." : "הפק דוח"}
+            בחירת קבצים
           </button>
+        </div>
 
-          {error && (
-            <p style={{ marginTop: 18, color: "#c62828", fontWeight: 700 }}>
-              {error}
-            </p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 14,
+          }}
+        >
+          <div
+            style={{
+              color: "#0d2c6c",
+              fontWeight: 800,
+              fontSize: 16,
+            }}
+          >
+            {selectedFiles.length
+              ? `נבחרו ${selectedFiles.length} קבצים`
+              : "עדיין לא נבחרו קבצים"}
+          </div>
+
+          {selectedFiles.length > 0 && (
+            <button
+              type="button"
+              onClick={clearAllFiles}
+              style={{
+                background: "#fff",
+                color: "#b42318",
+                border: "1px solid #f0c7c2",
+                borderRadius: 12,
+                padding: "10px 14px",
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              נקה הכל
+            </button>
           )}
         </div>
+
+        {selectedFiles.length > 0 && (
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e4e9f5",
+              borderRadius: 20,
+              overflow: "hidden",
+              marginBottom: 20,
+            }}
+          >
+            {selectedFiles.map((file, index) => (
+              <div
+                key={`${file.name}_${file.size}_${file.lastModified}`}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "14px 16px",
+                  borderBottom:
+                    index !== selectedFiles.length - 1
+                      ? "1px solid #eef2fa"
+                      : "none",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0d2c6c",
+                      marginBottom: 4,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {file.name}
+                  </div>
+
+                  <div
+                    style={{
+                      color: "#6b7280",
+                      fontSize: 13,
+                    }}
+                  >
+                    {(file.size / 1024).toFixed(1)} KB
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => removeFile(file)}
+                  style={{
+                    background: "#fff5f5",
+                    color: "#c81e1e",
+                    border: "1px solid #f3c2c2",
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  הסר
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleAnalyzeFiles}
+          disabled={loading || selectedFiles.length === 0}
+          style={{
+            width: "100%",
+            padding: "16px 20px",
+            background:
+              loading || selectedFiles.length === 0 ? "#c3cbdd" : "#0d2c6c",
+            color: "#fff",
+            border: "none",
+            borderRadius: 16,
+            fontSize: 17,
+            fontWeight: 800,
+            cursor:
+              loading || selectedFiles.length === 0 ? "not-allowed" : "pointer",
+            transition: "all 0.2s ease",
+          }}
+        >
+          {loading ? "מנתח קבצים..." : "הפק דוח"}
+        </button>
+
+        {loading && (
+          <div
+            style={{
+              marginTop: 16,
+              background: "#eef4ff",
+              border: "1px solid #d7e3ff",
+              borderRadius: 14,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: 10,
+                width: "100%",
+                background:
+                  "linear-gradient(90deg, #0d2c6c 0%, #3f67c6 50%, #0d2c6c 100%)",
+                backgroundSize: "200% 100%",
+                animation: "loadingBar 1.4s linear infinite",
+              }}
+            />
+            <div
+              style={{
+                padding: 12,
+                color: "#0d2c6c",
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              הקבצים נטענים ומנותחים...
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div
+            style={{
+              marginTop: 16,
+              background: "#fff5f5",
+              color: "#b42318",
+              border: "1px solid #f3c2c2",
+              borderRadius: 14,
+              padding: 14,
+              fontWeight: 700,
+            }}
+          >
+            {error}
+          </div>
+        )}
       </div>
+
+      <style>
+        {`
+          @keyframes loadingBar {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+        `}
+      </style>
     </div>
   );
 }
