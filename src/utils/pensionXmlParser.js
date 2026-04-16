@@ -232,9 +232,7 @@ function parsePolicy(policyNode) {
       relativesPension: parseNumber(
         getText(covers || policyNode, "PensionRelatives")
       ),
-      totalMonthlyCoverCost: parseNumber(
-        getText(covers || policyNode, "TotalSum")
-      ),
+      totalMonthlyCoverCost: parseNumber(getText(covers || policyNode, "TotalSum")),
     },
 
     savings: {
@@ -248,6 +246,21 @@ function parsePolicy(policyNode) {
         getText(save || policyNode, "ItraZvuraCompensetion")
       ),
       totalAccumulated: parseNumber(getText(save || policyNode, "TotalItraZvura")),
+
+      // חשוב: אלו השדות האמיתיים כפי שהגדרת
+      retireCurrBalance: parseNumber(
+        getText(save || policyNode, "RetireCurrBalance")
+      ),
+      totalPidions: parseNumber(
+        getText(save || policyNode, "TotalPidions")
+      ),
+      retireCurrBalancePension: parseNumber(
+        getText(save || policyNode, "RetireCurrBalancePension")
+      ),
+      pensionRetire: parseNumber(
+        getText(save || policyNode, "PensionRetire")
+      ),
+
       projectedRetirementBalance: parseNumber(
         getText(save || policyNode, "RetireCurrBalance")
       ),
@@ -255,9 +268,6 @@ function parsePolicy(policyNode) {
         getText(save || policyNode, "PensionRetire")
       ),
       totalRedemptions: parseNumber(getText(save || policyNode, "TotalPidions")),
-      retireCurrBalancePension: parseNumber(
-        getText(save || policyNode, "RetireCurrBalancePension")
-      ),
       hCoeff: parseNumber(getText(save || policyNode, "HCoff")),
     },
 
@@ -310,20 +320,22 @@ function parseSummary(doc) {
     save: {
       totalAccumulated: parseNumber(getText(brutoSave || doc, "TotalItraZvura")),
 
-      // השדות לפי ההגדרה שלך
-      withDepositsLumpSum: parseNumber(getText(brutoSave || doc, "TotalPidions")),
-      withoutDepositsLumpSum: parseNumber(
+      // מיפוי ישיר של שדות summary
+      withDepositsLumpSumField: parseNumber(
+        getText(brutoSave || doc, "TotalPidions")
+      ),
+      withoutDepositsLumpSumField: parseNumber(
         getText(netoSave || brutoSave || doc, "RetireCurrBalance")
       ),
-      withDepositsMonthlyPension: parseNumber(
+      withDepositsMonthlyPensionField: parseNumber(
         getText(brutoSave || doc, "PensionRetire")
       ),
-      withoutDepositsMonthlyPension: parseNumber(
+      withoutDepositsMonthlyPensionField: parseNumber(
         getText(netoSave || brutoSave || doc, "RetireCurrBalancePension")
       ),
 
       projectedRetirementBalance: parseNumber(
-        getText(brutoSave || doc, "TotalPidions")
+        getText(brutoSave || doc, "RetireCurrBalance")
       ),
       projectedMonthlyPension: parseNumber(
         getText(brutoSave || doc, "PensionRetire")
@@ -537,23 +549,27 @@ export function buildLegacyReportData(parsedFiles) {
     files.map((f) => f.summary?.budget?.sumCost)
   );
 
-  // מיפוי ישיר לפי השדות שהגדרת
+  // קצבה עם הפקדות - שדה PensionRetire
   const monthlyPensionWithDeposits = sumNullable(
-    files.map((f) => f.summary?.save?.withDepositsMonthlyPension)
+    files.map((f) => f.summary?.save?.withDepositsMonthlyPensionField)
   );
 
-  const projectedLumpSumWithDeposits = sumNullable(
-    files.map((f) => f.summary?.save?.withDepositsLumpSum)
-  );
-
+  // קצבה ללא הפקדות - שדה RetireCurrBalancePension
   const monthlyPensionWithoutDeposits = sumNullable(
-    files.map((f) => f.summary?.save?.withoutDepositsMonthlyPension)
+    files.map((f) => f.summary?.save?.withoutDepositsMonthlyPensionField)
   );
 
+  // חד הוני ללא הפקדות - בכל מוצר ללא HCoff, לקחת RetireCurrBalance
   const projectedLumpSumWithoutDeposits = sumNullable(
-    files.map((f) => f.summary?.save?.withoutDepositsLumpSum)
+    noCoeffPolicies.map((p) => p.savings?.retireCurrBalance)
   );
 
+  // חד הוני עם הפקדות - באותה לוגיקה, אבל לקחת TotalPidions
+  const projectedLumpSumWithDeposits = sumNullable(
+    noCoeffPolicies.map((p) => p.savings?.totalPidions)
+  );
+
+  // סכום ביטוח - צבירה נוכחית של כל מוצר ללא HCoff + ביטוח חיים
   const totalInsurance = sumNullable(
     insurancePolicies.map((p) => p.savings?.totalAccumulated)
   );
@@ -615,15 +631,19 @@ export function buildLegacyReportData(parsedFiles) {
       monthlyDeposits: monthlyDepositsMember,
       assets,
 
-      // מיפוי ישיר לפי השדות שהגדרת
       monthlyPensionWithDeposits:
-        file.summary?.save?.withDepositsMonthlyPension || 0,
+        file.summary?.save?.withDepositsMonthlyPensionField || 0,
+
       monthlyPensionWithoutDeposits:
-        file.summary?.save?.withoutDepositsMonthlyPension || 0,
-      lumpSumWithDeposits:
-        file.summary?.save?.withDepositsLumpSum || 0,
-      lumpSumWithoutDeposits:
-        file.summary?.save?.withoutDepositsLumpSum || 0,
+        file.summary?.save?.withoutDepositsMonthlyPensionField || 0,
+
+      lumpSumWithDeposits: sumNullable(
+        memberNoCoeff.map((p) => p.savings?.totalPidions)
+      ),
+
+      lumpSumWithoutDeposits: sumNullable(
+        memberNoCoeff.map((p) => p.savings?.retireCurrBalance)
+      ),
 
       deathCoverage,
       disabilityValue,
