@@ -3,10 +3,10 @@
 import React, { useRef, useState } from "react";
 import {
   parseMultiplePensionXmlFiles,
-  buildFamilyDashboardData,
+  buildLegacyReportData,
 } from "./utils/pensionXmlParser";
 
-export default function UploadPage({ setDashboardData, setParsedFiles }) {
+export default function UploadPage({ setReportData }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -101,11 +101,10 @@ export default function UploadPage({ setDashboardData, setParsedFiles }) {
 
       setLoading(true);
 
-      const parsedMembers = await parseMultiplePensionXmlFiles(selectedFiles);
-      const familyData = buildFamilyDashboardData(parsedMembers);
+      const parsedFiles = await parseMultiplePensionXmlFiles(selectedFiles);
+      const reportData = buildLegacyReportData(parsedFiles);
 
-      setParsedFiles(parsedMembers);
-      setDashboardData(familyData);
+      setReportData(reportData);
     } catch (err) {
       console.error(err);
       setError("שגיאה בקריאת קבצי XML");
@@ -156,8 +155,8 @@ export default function UploadPage({ setDashboardData, setParsedFiles }) {
               lineHeight: 1.8,
             }}
           >
-            אפשר להעלות קבצים אחד-אחד, לבחור כמה יחד, או פשוט לגרור לכאן.
-            המערכת תשמור את כל הקבצים שנבחרו עד שתלחץ על “הפק דוח”.
+            אפשר להעלות קבצים אחד-אחד, לבחור כמה יחד, או פשוט לגרור לכאן. המערכת
+            תשמור את כל הקבצים שנבחרו עד שתלחץ על “הפק דוח”.
           </p>
         </div>
 
@@ -184,14 +183,7 @@ export default function UploadPage({ setDashboardData, setParsedFiles }) {
             style={{ display: "none" }}
           />
 
-          <div
-            style={{
-              fontSize: 42,
-              marginBottom: 10,
-            }}
-          >
-            📂
-          </div>
+          <div style={{ fontSize: 42, marginBottom: 10 }}>📂</div>
 
           <div
             style={{

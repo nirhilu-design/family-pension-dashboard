@@ -5,26 +5,15 @@ import UploadPage from "./UploadPage";
 import ReportPage from "./ReportPage";
 
 export default function App() {
-  const [dashboardData, setDashboardData] = useState(null);
-  const [parsedFiles, setParsedFiles] = useState([]);
+  const [reportData, setReportData] = useState(null);
 
-  return (
-    <>
-      {!dashboardData ? (
-        <UploadPage
-          setDashboardData={setDashboardData}
-          setParsedFiles={setParsedFiles}
-        />
-      ) : (
-        <ReportPage
-          dashboardData={dashboardData}
-          parsedFiles={parsedFiles}
-          onReset={() => {
-            setDashboardData(null);
-            setParsedFiles([]);
-          }}
-        />
-      )}
-    </>
+  return reportData ? (
+    <ReportPage
+      reportData={reportData}
+      onBack={() => setReportData(null)}
+      onResetAll={() => setReportData(null)}
+    />
+  ) : (
+    <UploadPage setReportData={setReportData} />
   );
 }
