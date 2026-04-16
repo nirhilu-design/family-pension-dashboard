@@ -1,0 +1,39 @@
+export function buildFamilyDashboardData(members) {
+  const flatPolicies = members.flatMap((memberFile) =>
+    memberFile.policies.map((policy) => ({
+      ...policy,
+      ownerName: memberFile.member.fullName,
+      ownerId: memberFile.member.id,
+    }))
+  );
+
+  const totals = {
+    totalAccumulated: sumNullable(members.map((m) => m.summary.save.totalAccumulated)),
+    totalProjectedRetirementBalance: sumNullable(
+      members.map((m) => m.summary.save.projectedRetirementBalance)
+    ),
+    totalProjectedMonthlyPension: sumNullable(
+      members.map((m) => m.summary.save.projectedMonthlyPension)
+    ),
+
+    // ✅ ביטוח כולל מחושב רק ממוצרים עם אינדיקציה ביטוחית אמיתית
+    totalInsurance: sumNullable(
+      flatPolicies.map((p) => p.coverage.totalInsurance)
+    ),
+
+    totalMonthlyDeposits: sumNullable(members.map((m) => m.summary.budget.sumCost)),
+    totalWorkerDeposits: sumNullable(members.map((m) => m.summary.budget.worker)),
+    totalEmployerDeposits: sumNullable(members.map((m) => m.summary.budget.employer)),
+    totalCompensationDeposits: sumNullable(members.map((m) => m.summary.budget.compensation)),
+    totalRiskCost: sumNullable(flatPolicies.map((p) => p.coverage.totalRisk)),
+    totalCoverMonthlyCost: sumNullable(
+      flatPolicies.map((p) => p.coverage.totalMonthlyCoverCost)
+    ),
+  };
+
+  return {
+    members,
+    totals,
+    policies: flatPolicies,
+  };
+}
