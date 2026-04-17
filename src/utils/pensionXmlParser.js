@@ -1,73 +1,88 @@
 // src/utils/pensionXmlParser.js
 
 export async function parseMultiplePensionXmlFiles(files) {
-  const parsed = [];
+  const results = [];
 
   for (const file of files) {
-    const text = await file.text();
-    const json = parseXmlToJson(text);
+    const xmlText = await file.text();
+    const json = parseXmlToJson(xmlText);
 
-    parsed.push({
+    results.push({
       fileName: file.name,
-      rawXml: text,
+      rawXml: xmlText,
       json,
     });
   }
 
-  return parsed;
+  return results;
 }
 
 export function buildLegacyReportData(parsedFiles = []) {
-  const perFileData = parsedFiles.map((file) => extractFileData(file));
+  const memberBuckets = new Map();
+  const allProductsRaw = [];
+  const allTracksRaw = [];
+  const allLoansRaw = [];
+  const beneficiariesRaw = [];
 
-  const membersMap = new Map();
-  const allProducts = [];
-  const allLoans = [];
-  const allBeneficiaries = [];
+  for (const parsedFile of parsedFiles) {
+    const reportRoot = getReportRoot(parsedFile.json);
 
-  for (const fileData of perFileData) {
-    for (const member of fileData.members) {
-      const key = normalizeNameKey(member.firstName, member.familyName);
+    const memberDetails = extractMemberDetails(reportRoot);
+    const ownerFirstName = memberDetails.firstName || "";
+    const ownerFamilyName = memberDetails.familyName || "";
+    const ownerKey = normalizeNameKey(ownerFirstName, ownerFamilyName);
 
-      if (!membersMap.has(key)) {
-        membersMap.set(key, {
-          name: [member.firstName, member.familyName].filter(Boolean).join(" ").trim(),
-          firstName: member.firstName || "",
-          familyName: member.familyName || "",
-          assets: 0,
-          monthlyDeposits: 0,
-          monthlyPensionWithDeposits: 0,
-          monthlyPensionWithoutDeposits: 0,
-          lumpSumWithDeposits: 0,
-          lumpSumWithoutDeposits: 0,
-          deathCoverage: 0,
-          disabilityValue: 0,
-          disabilityPercent: 0,
-        });
-      }
+    const policies = toArray(safeGet(reportRoot, ["Policies", "Policy"]));
 
-      const target = membersMap.get(key);
-
-      target.assets += member.assets || 0;
-      target.monthlyDeposits += member.monthlyDeposits || 0;
-      target.monthlyPensionWithDeposits += member.monthlyPensionWithDeposits || 0;
-      target.monthlyPensionWithoutDeposits += member.monthlyPensionWithoutDeposits || 0;
-      target.lumpSumWithDeposits += member.lumpSumWithDeposits || 0;
-      target.lumpSumWithoutDeposits += member.lumpSumWithoutDeposits || 0;
-      target.deathCoverage += member.deathCoverage || 0;
-      target.disabilityValue += member.disabilityValue || 0;
-      target.disabilityPercent = Math.max(
-        target.disabilityPercent || 0,
-        member.disabilityPercent || 0
-      );
+    if (!memberBuckets.has(ownerKey)) {
+      memberBuckets.set(ownerKey, createEmptyMember(ownerFirstName, ownerFamilyName));
     }
 
-    allProducts.push(...fileData.products);
-    allLoans.push(...fileData.loans);
-    allBeneficiaries.push(...fileData.beneficiaries);
+    const memberBucket = memberBuckets.get(ownerKey);
+
+    for (const policy of policies) {
+      const normalizedPolicy = normalizePolicy(policy, ownerFirstName, ownerFamilyName);
+
+      memberBucket.assets += normalizedPolicy.assets;
+      memberBucket.monthlyDeposits += normalizedPolicy.monthlyDeposits;
+      memberBucket.monthlyPensionWithDeposits += normalizedPolicy.monthlyPensionWithDeposits;
+      memberBucket.monthlyPensionWithoutDeposits += normalizedPolicy.monthlyPensionWithoutDeposits;
+      memberBucket.lumpSumWithDeposits += normalizedPolicy.lumpSumWithDeposits;
+      memberBucket.lumpSumWithoutDeposits += normalizedPolicy.lumpSumWithoutDeposits;
+      memberBucket.deathCoverage += normalizedPolicy.deathCoverage;
+      memberBucket.disabilityValue += normalizedPolicy.disabilityValue;
+      memberBucket.disabilityPercent = Math.max(
+        memberBucket.disabilityPercent || 0,
+        normalizedPolicy.disabilityPercent || 0
+      );
+
+      allProductsRaw.push({
+        name: normalizedPolicy.productName,
+        value: normalizedPolicy.assets,
+        managerName: normalizedPolicy.managerName,
+      });
+
+      const investPlans = extractInvestPlans(policy);
+      for (const track of investPlans) {
+        allTracksRaw.push(track);
+      }
+
+      const loans = extractLoansFromPolicy(policy, ownerFirstName, ownerFamilyName);
+      for (const loan of loans) {
+        allLoansRaw.push(loan);
+      }
+    }
+
+    const beneficiaries = extractBeneficiaries(reportRoot);
+    for (const item of beneficiaries) {
+      beneficiariesRaw.push(item);
+    }
   }
 
-  const members = Array.from(membersMap.values());
+  const members = Array.from(memberBuckets.values()).map((member) => ({
+    ...member,
+    name: [member.firstName, member.familyName].filter(Boolean).join(" ").trim(),
+  }));
 
   const familyTotalAssets = sumBy(members, (m) => m.assets);
   const familyMonthlyDeposits = sumBy(members, (m) => m.monthlyDeposits);
@@ -93,54 +108,42 @@ export function buildLegacyReportData(parsedFiles = []) {
         : 0,
   }));
 
-  const products = aggregateItemsByName(allProducts);
-  const managers = aggregateItemsByName(
-    allProducts.map((p) => ({
-      name: p.managerName || "לא ידוע",
-      value: p.balance || 0,
+  const products = aggregateByName(allProductsRaw);
+  const managers = aggregateByName(
+    allProductsRaw.map((item) => ({
+      name: item.managerName || "לא ידוע",
+      value: item.value || 0,
     }))
   );
 
-  const tracks = aggregateTracks(allProducts);
-
-  const totalProducts = sumBy(products, (x) => x.value);
-  const totalManagers = sumBy(managers, (x) => x.value);
-  const totalTracks = sumBy(tracks, (x) => x.value);
+  const tracks = aggregateTracks(allTracksRaw);
+  const totalTracks = sumBy(tracks, (t) => t.value);
 
   const weightedEquityExposure =
     totalTracks > 0
       ? round2(
-          (tracks.reduce(
-            (sum, track) =>
-              sum + (track.value || 0) * ((track.equityPercent || 0) / 100),
-            0
-          ) /
-            totalTracks) *
-            100
+          tracks.reduce((sum, track) => {
+            return sum + (track.value || 0) * ((track.equityPercent || 0) / 100);
+          }, 0) / totalTracks
         )
       : 0;
 
-  const loansDetails = allLoans.map((loan, index) => ({
-    id:
-      loan.id ||
-      `${loan.firstName || ""}_${loan.familyName || ""}_${loan.endDate || ""}_${index}`,
-    firstName: loan.firstName || "",
-    familyName: loan.familyName || "",
-    amount: loan.amount || 0,
-    repaymentFrequency: loan.repaymentFrequency || "",
-    balance: loan.balance || 0,
-    endDate: loan.endDate || "",
-  }));
-
-  const beneficiariesCoverageAmount = allBeneficiaries.reduce(
-    (sum, item) => sum + (item.coverageAmount || 0),
-    0
+  const beneficiariesCoverageAmount = sumBy(
+    beneficiariesRaw,
+    (item) => item.coverageAmount || 0
   );
 
-  const beneficiariesSummary =
-    allBeneficiaries.length > 0
-      ? "נמצא מידע חלקי על מוטבים / כיסויים"
-      : "לא התקבל מידע";
+  const loansDetails = uniqueBy(
+    allLoansRaw,
+    (loan) =>
+      [
+        normalizeNameKey(loan.firstName, loan.familyName),
+        loan.amount || 0,
+        loan.balance || 0,
+        normalizeString(loan.repaymentFrequency),
+        normalizeString(loan.endDate),
+      ].join("|")
+  );
 
   return {
     family: {
@@ -151,116 +154,331 @@ export function buildLegacyReportData(parsedFiles = []) {
       monthlyPensionWithoutDeposits: familyMonthlyPensionWithoutDeposits,
       projectedLumpSumWithDeposits: familyLumpSumWithDeposits,
       projectedLumpSumWithoutDeposits: familyLumpSumWithoutDeposits,
-      retirementAgeLabel: "התחזית מבוססת על נתוני ה־XML שנקלטו במערכת",
+      retirementAgeLabel: "התחזית מחושבת מתוך שדות Save / Budgets בקבצי ה־XML",
     },
 
-    members: membersWithShare,
-
-    products: products.map((x) => ({
-      name: x.name,
-      value: x.value,
+    members: membersWithShare.map((member) => ({
+      name: member.name || "ללא שם",
+      assets: member.assets || 0,
+      monthlyDeposits: member.monthlyDeposits || 0,
+      monthlyPensionWithDeposits: member.monthlyPensionWithDeposits || 0,
+      monthlyPensionWithoutDeposits: member.monthlyPensionWithoutDeposits || 0,
+      lumpSumWithDeposits: member.lumpSumWithDeposits || 0,
+      lumpSumWithoutDeposits: member.lumpSumWithoutDeposits || 0,
+      deathCoverage: member.deathCoverage || 0,
+      disabilityValue: member.disabilityValue || 0,
+      disabilityPercent: member.disabilityPercent || 0,
+      shareOfFamilyAssets: member.shareOfFamilyAssets || 0,
     })),
 
-    managers: managers.map((x) => ({
-      name: x.name,
-      value: x.value,
+    products: products.map((item) => ({
+      name: item.name,
+      value: item.value,
     })),
 
-    tracks: tracks.map((x) => ({
-      name: x.name,
-      value: x.value,
-      equityPercent: x.equityPercent,
+    managers: managers.map((item) => ({
+      name: item.name,
+      value: item.value,
+    })),
+
+    tracks: tracks.map((track) => ({
+      name: track.name,
+      value: track.value,
+      equityPercent: track.equityPercent,
     })),
 
     loans: {
       hasData: loansDetails.length > 0,
-      details: loansDetails,
+      details: loansDetails.map((loan, index) => ({
+        id:
+          loan.id ||
+          `${loan.firstName || ""}_${loan.familyName || ""}_${loan.endDate || ""}_${index}`,
+        firstName: loan.firstName || "",
+        familyName: loan.familyName || "",
+        amount: loan.amount || 0,
+        repaymentFrequency: loan.repaymentFrequency || "",
+        balance: loan.balance || 0,
+        endDate: loan.endDate || "",
+      })),
     },
 
     beneficiaries: {
-      hasData: allBeneficiaries.length > 0,
+      hasData: beneficiariesRaw.length > 0,
       coverageAmount: beneficiariesCoverageAmount,
-      summary: beneficiariesSummary,
+      summary:
+        beneficiariesRaw.length > 0
+          ? "נמצא מידע חלקי על מוטבים / כיסוי"
+          : "לא התקבל מידע",
     },
 
     weightedEquityExposure,
-    totalProducts,
-    totalManagers,
-    totalTracks,
+    totalProducts: sumBy(products, (x) => x.value),
+    totalManagers: sumBy(managers, (x) => x.value),
+    totalTracks: totalTracks,
   };
 }
 
-function extractFileData(file) {
-  const root = file?.json || {};
+function getReportRoot(json) {
+  if (!json || typeof json !== "object") return {};
+  const keys = Object.keys(json);
+  if (!keys.length) return {};
+  return json[keys[0]] || {};
+}
 
-  const persons = extractPersons(root);
-  const products = extractProducts(root, persons);
-  const loans = extractLoans(root, persons);
-  const beneficiaries = extractBeneficiaries(root);
+function createEmptyMember(firstName, familyName) {
+  return {
+    firstName: firstName || "",
+    familyName: familyName || "",
+    assets: 0,
+    monthlyDeposits: 0,
+    monthlyPensionWithDeposits: 0,
+    monthlyPensionWithoutDeposits: 0,
+    lumpSumWithDeposits: 0,
+    lumpSumWithoutDeposits: 0,
+    deathCoverage: 0,
+    disabilityValue: 0,
+    disabilityPercent: 0,
+  };
+}
 
-  const membersMap = new Map();
-
-  for (const person of persons) {
-    const key = normalizeNameKey(person.firstName, person.familyName);
-
-    if (!membersMap.has(key)) {
-      membersMap.set(key, {
-        firstName: person.firstName || "",
-        familyName: person.familyName || "",
-        assets: 0,
-        monthlyDeposits: 0,
-        monthlyPensionWithDeposits: 0,
-        monthlyPensionWithoutDeposits: 0,
-        lumpSumWithDeposits: 0,
-        lumpSumWithoutDeposits: 0,
-        deathCoverage: 0,
-        disabilityValue: 0,
-        disabilityPercent: 0,
-      });
-    }
-  }
-
-  for (const product of products) {
-    const key = normalizeNameKey(product.firstName, product.familyName);
-
-    if (!membersMap.has(key)) {
-      membersMap.set(key, {
-        firstName: product.firstName || "",
-        familyName: product.familyName || "",
-        assets: 0,
-        monthlyDeposits: 0,
-        monthlyPensionWithDeposits: 0,
-        monthlyPensionWithoutDeposits: 0,
-        lumpSumWithDeposits: 0,
-        lumpSumWithoutDeposits: 0,
-        deathCoverage: 0,
-        disabilityValue: 0,
-        disabilityPercent: 0,
-      });
-    }
-
-    const member = membersMap.get(key);
-
-    member.assets += product.balance || 0;
-    member.monthlyDeposits += product.monthlyDeposit || 0;
-    member.monthlyPensionWithDeposits += product.monthlyPensionWithDeposits || 0;
-    member.monthlyPensionWithoutDeposits += product.monthlyPensionWithoutDeposits || 0;
-    member.lumpSumWithDeposits += product.lumpSumWithDeposits || 0;
-    member.lumpSumWithoutDeposits += product.lumpSumWithoutDeposits || 0;
-    member.deathCoverage += product.deathCoverage || 0;
-    member.disabilityValue += product.disabilityValue || 0;
-    member.disabilityPercent = Math.max(
-      member.disabilityPercent || 0,
-      product.disabilityPercent || 0
-    );
-  }
+function extractMemberDetails(reportRoot) {
+  const memberNode = safeGet(reportRoot, ["MemberDetails"]) || {};
 
   return {
-    members: Array.from(membersMap.values()),
-    products,
-    loans,
-    beneficiaries,
+    id: getText(memberNode.ID),
+    firstName: getText(memberNode.FirstName),
+    familyName: getText(memberNode.FamilyName),
+    companyName: getText(memberNode.CompanyName),
+    income: normalizeNumber(memberNode.Income),
   };
+}
+
+function normalizePolicy(policy, ownerFirstName, ownerFamilyName) {
+  const budgets = safeGet(policy, ["Budgets"]) || {};
+  const covers = safeGet(policy, ["Covers"]) || {};
+  const policyDetails = safeGet(policy, ["PolicyDetails"]) || {};
+  const save = safeGet(policy, ["Save"]) || {};
+
+  const productName =
+    getText(budgets.PlanName) ||
+    getText(covers.PlanName) ||
+    getText(save.PlanName) ||
+    getText(budgets.ProposeName2) ||
+    getText(covers.ProposeName2) ||
+    getText(save.ProposeName2) ||
+    "מוצר לא ידוע";
+
+  const managerName =
+    inferManagerName(productName) ||
+    getText(budgets.CompanyName) ||
+    getText(covers.CompanyName) ||
+    "לא ידוע";
+
+  const totalTagWorker = normalizeNumber(budgets.TotalTagWorker);
+  const totalTagEmployer = normalizeNumber(budgets.TotalTagEmployer);
+  const totalCompensetion = normalizeNumber(budgets.TotalCompensetion);
+  const sumCost = normalizeNumber(budgets.SumCost);
+
+  const monthlyDeposits =
+    sumCost || totalTagWorker + totalTagEmployer + totalCompensetion;
+
+  const assets =
+    normalizeNumber(save.TotalItraZvura) ||
+    normalizeNumber(save.ItraZvuraTotalTagAfter2000) +
+      normalizeNumber(save.ItraZvuraCompensetion) +
+      normalizeNumber(save.ItraZvuraTotalTagBefore2000);
+
+  const monthlyPensionWithDeposits =
+    normalizeNumber(save.PensionRetire) ||
+    normalizeNumber(save.TotalPidionsMonthly) ||
+    0;
+
+  const monthlyPensionWithoutDeposits =
+    normalizeNumber(save.RetireCurrBalancePension) || 0;
+
+  const lumpSumWithDeposits =
+    normalizeNumber(save.TotalPidions) ||
+    tryMultiply(
+      normalizeNumber(save.PensionRetire),
+      normalizeNumber(save.HCoff)
+    );
+
+  const lumpSumWithoutDeposits =
+    normalizeNumber(save.RetireCurrBalance) ||
+    tryMultiply(
+      normalizeNumber(save.RetireCurrBalancePension),
+      normalizeNumber(save.HCoff)
+    );
+
+  const deathCoverage =
+    normalizeNumber(covers.TotalBituah) ||
+    normalizeNumber(covers.TotalRisk) ||
+    0;
+
+  const disabilityValue =
+    normalizeNumber(covers.Handicapped) ||
+    normalizeNumber(covers.PensionDisability) ||
+    0;
+
+  const disabilityPercent =
+    extractPercentFromText(getText(policyDetails.ProposeName)) ||
+    0;
+
+  return {
+    firstName: ownerFirstName,
+    familyName: ownerFamilyName,
+    productName,
+    managerName,
+    assets,
+    monthlyDeposits,
+    monthlyPensionWithDeposits,
+    monthlyPensionWithoutDeposits,
+    lumpSumWithDeposits,
+    lumpSumWithoutDeposits,
+    deathCoverage,
+    disabilityValue,
+    disabilityPercent,
+  };
+}
+
+function extractInvestPlans(policy) {
+  const investPlans = toArray(safeGet(policy, ["InvestPlans", "InvestPlan"]));
+
+  return investPlans
+    .map((plan) => {
+      const trackName =
+        getText(plan.PlanNameAfik) ||
+        getText(plan.PlanName) ||
+        getText(plan.ProposeType) ||
+        "מסלול לא ידוע";
+
+      const equityPercent = extractEquityPercentFromInvestPlan(plan);
+
+      return {
+        name: trackName,
+        value: 1,
+        equityPercent,
+      };
+    })
+    .filter((item) => item.name);
+}
+
+function extractEquityPercentFromInvestPlan(plan) {
+  const exposures = toArray(
+    safeGet(plan, ["Properties", "Exposures", "Property"])
+  );
+
+  for (const property of exposures) {
+    const propertyName = normalizeString(getText(property.PropertyName));
+    if (propertyName.includes("חשיפה למניות")) {
+      return normalizeNumber(property.rate);
+    }
+  }
+
+  const mainGroups = toArray(
+    safeGet(plan, ["Properties", "MainGroups", "Property"])
+  );
+
+  for (const property of mainGroups) {
+    const propertyName = normalizeString(getText(property.PropertyName));
+    if (propertyName.includes("מניות")) {
+      return normalizeNumber(property.rate);
+    }
+  }
+
+  return inferEquityPercentFromTrackName(
+    getText(plan.PlanNameAfik) || getText(plan.PlanName)
+  );
+}
+
+function extractLoansFromPolicy(policy, ownerFirstName, ownerFamilyName) {
+  const loans = [];
+  const loanItems = toArray(safeGet(policy, ["Loans", "Loan"]));
+
+  loanItems.forEach((loan, index) => {
+    const amount = normalizeNumber(loan["SCHUM-HALVAA"]);
+    const repaymentFrequency = getText(loan["TADIRUT-HECHZER-HALVAA"]);
+    const balance = normalizeNumber(loan["YITRAT-HALVAA"]);
+    const endDate = getText(loan["TAARICH-SIYUM-HALVAA"]);
+
+    if (!amount && !balance && !repaymentFrequency && !endDate) {
+      return;
+    }
+
+    loans.push({
+      id: `${normalizeNameKey(ownerFirstName, ownerFamilyName)}_${amount}_${balance}_${endDate}_${index}`,
+      firstName: ownerFirstName || "",
+      familyName: ownerFamilyName || "",
+      amount,
+      repaymentFrequency,
+      balance,
+      endDate,
+    });
+  });
+
+  return loans;
+}
+
+function extractBeneficiaries(reportRoot) {
+  const policies = toArray(safeGet(reportRoot, ["Policies", "Policy"]));
+  const results = [];
+
+  for (const policy of policies) {
+    const covers = safeGet(policy, ["Covers"]) || {};
+    const amount = normalizeNumber(covers.TotalBituah);
+
+    if (amount > 0) {
+      results.push({
+        coverageAmount: amount,
+      });
+    }
+  }
+
+  return results;
+}
+
+function aggregateByName(items) {
+  const map = new Map();
+
+  for (const item of items) {
+    const name = (item.name || "לא ידוע").trim();
+    const value = Number(item.value || 0);
+
+    if (!name || value <= 0) continue;
+
+    if (!map.has(name)) {
+      map.set(name, { name, value: 0 });
+    }
+
+    map.get(name).value += value;
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.value - a.value);
+}
+
+function aggregateTracks(items) {
+  const map = new Map();
+
+  for (const item of items) {
+    const name = item.name || "מסלול לא ידוע";
+    const value = Number(item.value || 0);
+    const equityPercent = Number(item.equityPercent || 0);
+
+    if (!map.has(name)) {
+      map.set(name, {
+        name,
+        value: 0,
+        equityPercent,
+      });
+    }
+
+    const target = map.get(name);
+    target.value += value;
+    target.equityPercent =
+      target.equityPercent > 0 ? target.equityPercent : equityPercent;
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.value - a.value);
 }
 
 function parseXmlToJson(xmlString) {
@@ -279,8 +497,8 @@ function parseXmlToJson(xmlString) {
 
 function xmlNodeToJson(node) {
   if (node.nodeType === 3) {
-    const text = node.nodeValue?.trim();
-    return text ? text : null;
+    const text = (node.nodeValue || "").trim();
+    return text || null;
   }
 
   if (node.nodeType !== 1) return null;
@@ -288,26 +506,28 @@ function xmlNodeToJson(node) {
   const obj = {};
 
   if (node.attributes && node.attributes.length > 0) {
-    for (const attr of node.attributes) {
+    for (const attr of Array.from(node.attributes)) {
       obj[`@${attr.nodeName}`] = attr.nodeValue;
     }
   }
 
-  const children = Array.from(node.childNodes).filter((child) => {
+  const childNodes = Array.from(node.childNodes || []).filter((child) => {
     if (child.nodeType === 3) {
-      return child.nodeValue?.trim();
+      return (child.nodeValue || "").trim();
     }
     return child.nodeType === 1;
   });
 
-  if (children.length === 0) {
-    return node.textContent?.trim() || "";
+  if (childNodes.length === 0) {
+    return (node.textContent || "").trim();
   }
 
-  for (const child of children) {
+  for (const child of childNodes) {
     if (child.nodeType === 3) {
-      const text = child.nodeValue?.trim();
-      if (text) obj["#text"] = text;
+      const text = (child.nodeValue || "").trim();
+      if (text) {
+        obj["#text"] = text;
+      }
       continue;
     }
 
@@ -316,501 +536,48 @@ function xmlNodeToJson(node) {
 
     if (obj[childName] === undefined) {
       obj[childName] = childJson;
-    } else {
-      if (!Array.isArray(obj[childName])) {
-        obj[childName] = [obj[childName]];
-      }
+    } else if (Array.isArray(obj[childName])) {
       obj[childName].push(childJson);
+    } else {
+      obj[childName] = [obj[childName], childJson];
     }
   }
 
   return obj;
 }
 
-function extractPersons(root) {
-  const found = [];
+function safeGet(obj, path) {
+  let current = obj;
 
-  deepWalk(root, (node) => {
-    const firstName = getText(
-      findFirstExisting(node, [
-        "FirstName",
-        "FIRST-NAME",
-        "FIRSTNAME",
-        "firstName",
-        "SHEM-PRATI",
-      ])
-    );
-
-    const familyName = getText(
-      findFirstExisting(node, [
-        "FamilyName",
-        "FAMILY-NAME",
-        "FAMILYNAME",
-        "familyName",
-        "SHEM-MISHPACHA",
-      ])
-    );
-
-    if (normalizeString(firstName) || normalizeString(familyName)) {
-      found.push({
-        firstName,
-        familyName,
-      });
-    }
-  });
-
-  return uniqueBy(found, (p) => normalizeNameKey(p.firstName, p.familyName));
-}
-
-function extractProducts(root, persons = []) {
-  const products = [];
-  const personFallback = persons[0] || { firstName: "", familyName: "" };
-
-  deepWalk(root, (node, path) => {
-    const productName = getText(
-      findFirstExisting(node, [
-        "ProductName",
-        "PRODUCT-NAME",
-        "SHEM-MOTSAR",
-        "SHEM-KUPA",
-        "KUPA-NAME",
-        "Description",
-        "DESCRIPTION",
-      ])
-    );
-
-    const managerName = getText(
-      findFirstExisting(node, [
-        "ManagerName",
-        "MANAGER-NAME",
-        "SHEM-MENAHEL",
-        "COMPANY-NAME",
-        "YEVRA-MENAHELET",
-      ])
-    );
-
-    const trackName = getText(
-      findFirstExisting(node, [
-        "TrackName",
-        "TRACK-NAME",
-        "MASLUL",
-        "SHEM-MASLUL",
-        "INVESTMENT-TRACK",
-      ])
-    );
-
-    const balance = normalizeNumber(
-      findFirstExisting(node, [
-        "CurrentBalance",
-        "CURRENT-BALANCE",
-        "TZVIRA",
-        "צבירה",
-        "YITRA",
-        "YITRAT-CHESHBON",
-        "TotalBalance",
-      ])
-    );
-
-    const monthlyDeposit = normalizeNumber(
-      findFirstExisting(node, [
-        "MonthlyDeposit",
-        "MONTHLY-DEPOSIT",
-        "HAFKADA-CHODSHIT",
-        "HAFKADA-HODSHIT",
-        "TOTAL-MONTHLY-DEPOSIT",
-      ])
-    );
-
-    const monthlyPensionWithDeposits = normalizeNumber(
-      findFirstExisting(node, [
-        "MonthlyPensionWithDeposits",
-        "MONTHLY-PENSION-WITH-DEPOSITS",
-        "KITZBA-IM-HAFKADOT",
-        "EXPECTED-PENSION-WITH-DEPOSITS",
-        "PENSION-WITH-DEPOSITS",
-      ])
-    );
-
-    const monthlyPensionWithoutDeposits = normalizeNumber(
-      findFirstExisting(node, [
-        "MonthlyPensionWithoutDeposits",
-        "MONTHLY-PENSION-WITHOUT-DEPOSITS",
-        "KITZBA-BLI-HAFKADOT",
-        "EXPECTED-PENSION-WITHOUT-DEPOSITS",
-        "PENSION-WITHOUT-DEPOSITS",
-      ])
-    );
-
-    const hCoeff = normalizeNumber(
-      findFirstExisting(node, [
-        "HCoff",
-        "HCOFF",
-        "H-COFF",
-        "HEKDEM-HONI",
-        "COEFFICIENT-H",
-      ])
-    );
-
-    const deathCoverageBase = normalizeNumber(
-      findFirstExisting(node, [
-        "DeathCoverage",
-        "RISK-COVERAGE",
-        "BITUACH-CHAIM",
-        "SACH-BITUACH",
-        "LIFE-INSURANCE",
-      ])
-    );
-
-    const noFactorInsurance = normalizeNumber(
-      findFirstExisting(node, [
-        "InsuranceWithoutFactor",
-        "NO-FACTOR-INSURANCE",
-        "WITHOUT-COEFFICIENT-INSURANCE",
-        "BITUACH-LELO-MIKDAM",
-      ])
-    );
-
-    const disabilityValue = normalizeNumber(
-      findFirstExisting(node, [
-        "DisabilityValue",
-        "DISABILITY-VALUE",
-        "ACHUZ-NECHUT",
-        "A-CA",
-        "OCCUPATIONAL-DISABILITY-AMOUNT",
-      ])
-    );
-
-    const disabilityPercent = normalizeNumber(
-      findFirstExisting(node, [
-        "DisabilityPercent",
-        "DISABILITY-PERCENT",
-        "ACHUZ-NECHUT-PERCENT",
-        "OCCUPATIONAL-DISABILITY-PERCENT",
-      ])
-    );
-
-    if (
-      !productName &&
-      !managerName &&
-      !trackName &&
-      balance === 0 &&
-      monthlyDeposit === 0 &&
-      monthlyPensionWithDeposits === 0 &&
-      monthlyPensionWithoutDeposits === 0 &&
-      hCoeff === 0 &&
-      deathCoverageBase === 0 &&
-      noFactorInsurance === 0 &&
-      disabilityValue === 0 &&
-      disabilityPercent === 0
-    ) {
-      return;
-    }
-
-    const ownerFirstName =
-      getText(
-        findFirstExisting(node, [
-          "FirstName",
-          "FIRST-NAME",
-          "FIRSTNAME",
-          "firstName",
-        ])
-      ) || personFallback.firstName;
-
-    const ownerFamilyName =
-      getText(
-        findFirstExisting(node, [
-          "FamilyName",
-          "FAMILY-NAME",
-          "FAMILYNAME",
-          "familyName",
-        ])
-      ) || personFallback.familyName;
-
-    const lumpSumWithDeposits =
-      hCoeff > 0 && monthlyPensionWithDeposits > 0
-        ? monthlyPensionWithDeposits * hCoeff
-        : 0;
-
-    const lumpSumWithoutDeposits =
-      hCoeff > 0 && monthlyPensionWithoutDeposits > 0
-        ? monthlyPensionWithoutDeposits * hCoeff
-        : 0;
-
-    const deathCoverage = deathCoverageBase + noFactorInsurance;
-
-    products.push({
-      firstName: ownerFirstName,
-      familyName: ownerFamilyName,
-      productName: productName || "מוצר לא מזוהה",
-      managerName: managerName || "לא ידוע",
-      trackName: trackName || "מסלול לא ידוע",
-      balance,
-      monthlyDeposit,
-      monthlyPensionWithDeposits,
-      monthlyPensionWithoutDeposits,
-      lumpSumWithDeposits,
-      lumpSumWithoutDeposits,
-      deathCoverage,
-      disabilityValue,
-      disabilityPercent,
-      _path: path.join(" > "),
-    });
-  });
-
-  return products.filter((p) => {
-    const meaningful =
-      p.balance ||
-      p.monthlyDeposit ||
-      p.monthlyPensionWithDeposits ||
-      p.monthlyPensionWithoutDeposits ||
-      p.lumpSumWithDeposits ||
-      p.lumpSumWithoutDeposits ||
-      p.deathCoverage ||
-      p.disabilityValue ||
-      p.disabilityPercent;
-
-    return !!meaningful;
-  });
-}
-
-function extractLoans(root, persons = []) {
-  const loansResult = [];
-  const defaultPerson = persons[0] || { firstName: "", familyName: "" };
-
-  const walk = (node, inheritedOwner = null) => {
-    if (!node || typeof node !== "object") return;
-
-    const owner = inheritedOwner || {
-      firstName:
-        getText(
-          findFirstExisting(node, [
-            "FirstName",
-            "FIRST-NAME",
-            "FIRSTNAME",
-            "firstName",
-          ])
-        ) || defaultPerson.firstName,
-
-      familyName:
-        getText(
-          findFirstExisting(node, [
-            "FamilyName",
-            "FAMILY-NAME",
-            "FAMILYNAME",
-            "familyName",
-          ])
-        ) || defaultPerson.familyName,
-    };
-
-    // התמיכה הקריטית למבנה האמיתי: Loans > Loan
-    if (node.Loans && node.Loans.Loan) {
-      const loanItems = toArray(node.Loans.Loan);
-
-      loanItems.forEach((loan, index) => {
-        const amount = normalizeNumber(loan["SCHUM-HALVAA"]);
-        const repaymentFrequency = getText(loan["TADIRUT-HECHZER-HALVAA"]);
-        const balance = normalizeNumber(loan["YITRAT-HALVAA"]);
-        const endDate = getText(loan["TAARICH-SIYUM-HALVAA"]);
-
-        if (amount || balance || repaymentFrequency || endDate) {
-          loansResult.push({
-            id: `${normalizeNameKey(owner.firstName, owner.familyName)}_${amount}_${balance}_${endDate}_${index}`,
-            firstName: owner.firstName || "",
-            familyName: owner.familyName || "",
-            amount,
-            repaymentFrequency,
-            balance,
-            endDate,
-          });
-        }
-      });
-    }
-
-    // תמיכה נוספת אם Loan מופיע ישירות בלי עטיפה
-    if (node.Loan) {
-      const loanItems = toArray(node.Loan);
-
-      loanItems.forEach((loan, index) => {
-        const amount = normalizeNumber(loan["SCHUM-HALVAA"]);
-        const repaymentFrequency = getText(loan["TADIRUT-HECHZER-HALVAA"]);
-        const balance = normalizeNumber(loan["YITRAT-HALVAA"]);
-        const endDate = getText(loan["TAARICH-SIYUM-HALVAA"]);
-
-        if (amount || balance || repaymentFrequency || endDate) {
-          loansResult.push({
-            id: `${normalizeNameKey(owner.firstName, owner.familyName)}_${amount}_${balance}_${endDate}_direct_${index}`,
-            firstName: owner.firstName || "",
-            familyName: owner.familyName || "",
-            amount,
-            repaymentFrequency,
-            balance,
-            endDate,
-          });
-        }
-      });
-    }
-
-    Object.keys(node).forEach((key) => {
-      const child = node[key];
-
-      if (Array.isArray(child)) {
-        child.forEach((item) => walk(item, owner));
-      } else if (child && typeof child === "object") {
-        walk(child, owner);
-      }
-    });
-  };
-
-  walk(root);
-
-  return uniqueBy(
-    loansResult,
-    (loan) =>
-      [
-        normalizeString(loan.firstName),
-        normalizeString(loan.familyName),
-        loan.amount || 0,
-        normalizeString(loan.repaymentFrequency),
-        loan.balance || 0,
-        normalizeString(loan.endDate),
-      ].join("|")
-  );
-}
-
-function extractBeneficiaries(root) {
-  const found = [];
-
-  deepWalk(root, (node) => {
-    const summaryText = getText(
-      findFirstExisting(node, [
-        "BeneficiariesSummary",
-        "MOTAVIM",
-        "MOTAVIM-SUMMARY",
-        "BENEFICIARIES",
-      ])
-    );
-
-    const coverageAmount = normalizeNumber(
-      findFirstExisting(node, [
-        "CoverageAmount",
-        "BENEFICIARIES-COVERAGE-AMOUNT",
-        "SACH-BITUACH",
-        "BITUACH-CHAIM",
-      ])
-    );
-
-    if (summaryText || coverageAmount) {
-      found.push({
-        summary: summaryText,
-        coverageAmount,
-      });
-    }
-  });
-
-  return found;
-}
-
-function aggregateItemsByName(items) {
-  const map = new Map();
-
-  for (const item of items) {
-    const name = (item.name || item.productName || "לא ידוע").trim();
-    const value = Number(item.value ?? item.balance ?? 0);
-
-    if (!map.has(name)) {
-      map.set(name, { name, value: 0 });
-    }
-
-    map.get(name).value += value;
+  for (const key of path) {
+    if (current === null || current === undefined) return undefined;
+    current = current[key];
   }
 
-  return Array.from(map.values())
-    .filter((item) => item.value > 0)
-    .sort((a, b) => b.value - a.value);
-}
-
-function aggregateTracks(products) {
-  const map = new Map();
-
-  for (const product of products) {
-    const name = product.trackName || "מסלול לא ידוע";
-    const value = product.balance || 0;
-    const equityPercent = inferEquityPercentFromTrackName(name);
-
-    if (!map.has(name)) {
-      map.set(name, {
-        name,
-        value: 0,
-        equityPercent,
-      });
-    }
-
-    map.get(name).value += value;
-  }
-
-  return Array.from(map.values())
-    .filter((item) => item.value > 0)
-    .sort((a, b) => b.value - a.value);
-}
-
-function inferEquityPercentFromTrackName(trackName = "") {
-  const s = normalizeString(trackName);
-
-  if (s.includes("מניית") || s.includes("מניות") || s.includes("stocks")) return 100;
-  if (s.includes('אג"ח') || s.includes("אגח") || s.includes("bond")) return 10;
-  if (s.includes("כללי") || s.includes("general")) return 35;
-  if (s.includes("הלכה")) return 25;
-  if (s.includes("סולידי") || s.includes("solid")) return 5;
-  if (s.includes("עוקב מדד") || s.includes("מדד") || s.includes("index")) return 60;
-  return 30;
-}
-
-function deepWalk(node, callback, path = []) {
-  if (!node || typeof node !== "object") return;
-
-  callback(node, path);
-
-  Object.keys(node).forEach((key) => {
-    const child = node[key];
-    const nextPath = [...path, key];
-
-    if (Array.isArray(child)) {
-      child.forEach((item, index) => deepWalk(item, callback, [...nextPath, String(index)]));
-    } else if (child && typeof child === "object") {
-      deepWalk(child, callback, nextPath);
-    }
-  });
-}
-
-function findFirstExisting(obj, keys) {
-  for (const key of keys) {
-    if (obj && obj[key] !== undefined && obj[key] !== null) {
-      const val = obj[key];
-      if (typeof val === "object") {
-        if (getText(val) !== "") return val;
-      } else if (String(val).trim() !== "") {
-        return val;
-      }
-    }
-  }
-  return "";
-}
-
-function getText(value) {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string" || typeof value === "number") return String(value).trim();
-
-  if (typeof value === "object") {
-    if ("#text" in value) return String(value["#text"] || "").trim();
-    if ("_" in value) return String(value["_"] || "").trim();
-  }
-
-  return "";
+  return current;
 }
 
 function toArray(value) {
   if (!value) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+function getText(value) {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).trim();
+  }
+
+  if (typeof value === "object") {
+    if (value["#text"] !== undefined) {
+      return String(value["#text"] || "").trim();
+    }
+    if (value._ !== undefined) {
+      return String(value._ || "").trim();
+    }
+  }
+
+  return "";
 }
 
 function normalizeString(value) {
@@ -825,7 +592,10 @@ function normalizeNumber(value) {
     .replace(/₪/g, "")
     .replace(/\s/g, "")
     .replace(/,/g, "")
+    .replace(/%/g, "")
     .replace(/[^\d.-]/g, "");
+
+  if (!cleaned || cleaned === "-" || cleaned === ".") return 0;
 
   const num = Number(cleaned);
   return Number.isFinite(num) ? num : 0;
@@ -833,6 +603,10 @@ function normalizeNumber(value) {
 
 function normalizeNameKey(firstName, familyName) {
   return `${normalizeString(firstName)}|${normalizeString(familyName)}`;
+}
+
+function sumBy(array, selector) {
+  return (array || []).reduce((sum, item) => sum + Number(selector(item) || 0), 0);
 }
 
 function uniqueBy(array, keyFn) {
@@ -848,14 +622,54 @@ function uniqueBy(array, keyFn) {
   return Array.from(map.values());
 }
 
-function sumBy(array, selector) {
-  return (array || []).reduce((sum, item) => sum + (selector(item) || 0), 0);
-}
-
 function round2(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 }
 
 function formatToday() {
   return new Intl.DateTimeFormat("he-IL").format(new Date());
+}
+
+function tryMultiply(a, b) {
+  const x = Number(a || 0);
+  const y = Number(b || 0);
+  if (!x || !y) return 0;
+  return x * y;
+}
+
+function inferManagerName(productName = "") {
+  const name = getText(productName);
+
+  if (!name) return "לא ידוע";
+  if (name.includes("מגדל")) return "מגדל";
+  if (name.includes("הראל")) return "הראל";
+  if (name.includes("כלל")) return "כלל";
+  if (name.includes("מנורה")) return "מנורה מבטחים";
+  if (name.includes("הפניקס")) return "הפניקס";
+  if (name.includes("אלטשולר")) return "אלטשולר שחם";
+  if (name.includes("מור")) return "מור";
+  if (name.includes("מיטב")) return "מיטב";
+  if (name.includes("אנליסט")) return "אנליסט";
+  return "לא ידוע";
+}
+
+function extractPercentFromText(text = "") {
+  const str = getText(text);
+  const match = str.match(/(\d+(?:\.\d+)?)%/);
+  return match ? Number(match[1]) : 0;
+}
+
+function inferEquityPercentFromTrackName(trackName = "") {
+  const s = normalizeString(trackName);
+
+  if (s.includes("מניות") || s.includes("מניית")) return 100;
+  if (s.includes("אג\"ח") || s.includes("אגח")) return 10;
+  if (s.includes("הלכה")) return 25;
+  if (s.includes("סולידי")) return 5;
+  if (s.includes("כללי")) return 35;
+  if (s.includes("עד גיל 50")) return 60;
+  if (s.includes("50 עד 60")) return 45;
+  if (s.includes("60 ומעלה")) return 25;
+
+  return 30;
 }
