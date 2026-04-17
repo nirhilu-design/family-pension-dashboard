@@ -13,6 +13,7 @@ export default function UploadPage({ setReportData }) {
   const [isDragging, setIsDragging] = useState(false);
 
   const fileInputRef = useRef(null);
+  const dragCounterRef = useRef(0);
 
   const addFiles = (files) => {
     const xmlFiles = Array.from(files || []).filter((file) =>
@@ -48,24 +49,51 @@ export default function UploadPage({ setReportData }) {
   const handleDrop = (event) => {
     event.preventDefault();
     event.stopPropagation();
+
+    dragCounterRef.current = 0;
     setIsDragging(false);
+
     addFiles(event.dataTransfer.files);
   };
 
   const handleDragOver = (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!isDragging) setIsDragging(true);
+    event.dataTransfer.dropEffect = "copy";
+
+    if (!isDragging) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragEnter = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    dragCounterRef.current += 1;
+    if (!isDragging) {
+      setIsDragging(true);
+    }
   };
 
   const handleDragLeave = (event) => {
     event.preventDefault();
     event.stopPropagation();
 
-    const related = event.relatedTarget;
-    if (!event.currentTarget.contains(related)) {
+    dragCounterRef.current -= 1;
+
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
       setIsDragging(false);
     }
+  };
+
+  const handleDragEnd = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    dragCounterRef.current = 0;
+    setIsDragging(false);
   };
 
   const removeFile = (fileToRemove) => {
@@ -84,6 +112,8 @@ export default function UploadPage({ setReportData }) {
   const clearAllFiles = () => {
     setSelectedFiles([]);
     setError("");
+    dragCounterRef.current = 0;
+    setIsDragging(false);
   };
 
   const openFilePicker = () => {
@@ -107,7 +137,7 @@ export default function UploadPage({ setReportData }) {
       setReportData(reportData);
     } catch (err) {
       console.error(err);
-      setError("שגיאה בקריאת קבצי XML");
+      setError(`שגיאה בקריאת קבצי XML: ${err?.message || err}`);
     } finally {
       setLoading(false);
     }
@@ -163,7 +193,9 @@ export default function UploadPage({ setReportData }) {
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
+          onDragEnd={handleDragEnd}
           style={{
             border: isDragging ? "2px solid #0d2c6c" : "2px dashed #cbd4e6",
             background: isDragging ? "#eef4ff" : "#f9fbff",
