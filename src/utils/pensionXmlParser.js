@@ -1,675 +1,806 @@
 // src/utils/pensionXmlParser.js
 
-export async function parseMultiplePensionXmlFiles(files) {
-  const results = [];
+function sanitizeXml(rawXml) {
+  let text = String(rawXml || "");
 
-  for (const file of files) {
-    const xmlText = await file.text();
-    const json = parseXmlToJson(xmlText);
+  text = text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+  text = text.replace(/&(?!amp;|lt;|gt;|quot;|apos;)/g, "&amp;");
 
-    results.push({
-      fileName: file.name,
-      rawXml: xmlText,
-      json,
-    });
-  }
-
-  return results;
+  return text;
 }
 
-export function buildLegacyReportData(parsedFiles = []) {
-  const memberBuckets = new Map();
-  const allProductsRaw = [];
-  const allTracksRaw = [];
-  const allLoansRaw = [];
-  const beneficiariesRaw = [];
-
-  for (const parsedFile of parsedFiles) {
-    const reportRoot = getReportRoot(parsedFile.json);
-
-    const memberDetails = extractMemberDetails(reportRoot);
-    const ownerFirstName = memberDetails.firstName || "";
-    const ownerFamilyName = memberDetails.familyName || "";
-    const ownerKey = normalizeNameKey(ownerFirstName, ownerFamilyName);
-
-    const policies = toArray(safeGet(reportRoot, ["Policies", "Policy"]));
-
-    if (!memberBuckets.has(ownerKey)) {
-      memberBuckets.set(ownerKey, createEmptyMember(ownerFirstName, ownerFamilyName));
-    }
-
-    const memberBucket = memberBuckets.get(ownerKey);
-
-    for (const policy of policies) {
-      const normalizedPolicy = normalizePolicy(policy, ownerFirstName, ownerFamilyName);
-
-      memberBucket.assets += normalizedPolicy.assets;
-      memberBucket.monthlyDeposits += normalizedPolicy.monthlyDeposits;
-      memberBucket.monthlyPensionWithDeposits += normalizedPolicy.monthlyPensionWithDeposits;
-      memberBucket.monthlyPensionWithoutDeposits += normalizedPolicy.monthlyPensionWithoutDeposits;
-      memberBucket.lumpSumWithDeposits += normalizedPolicy.lumpSumWithDeposits;
-      memberBucket.lumpSumWithoutDeposits += normalizedPolicy.lumpSumWithoutDeposits;
-      memberBucket.deathCoverage += normalizedPolicy.deathCoverage;
-      memberBucket.disabilityValue += normalizedPolicy.disabilityValue;
-      memberBucket.disabilityPercent = Math.max(
-        memberBucket.disabilityPercent || 0,
-        normalizedPolicy.disabilityPercent || 0
-      );
-
-      allProductsRaw.push({
-        name: normalizedPolicy.productName,
-        value: normalizedPolicy.assets,
-        managerName: normalizedPolicy.managerName,
-      });
-
-      const investPlans = extractInvestPlans(policy);
-      for (const track of investPlans) {
-        allTracksRaw.push(track);
-      }
-
-      const loans = extractLoansFromPolicy(policy, ownerFirstName, ownerFamilyName);
-      for (const loan of loans) {
-        allLoansRaw.push(loan);
-      }
-    }
-
-    const beneficiaries = extractBeneficiaries(reportRoot);
-    for (const item of beneficiaries) {
-      beneficiariesRaw.push(item);
-    }
-  }
-
-  const members = Array.from(memberBuckets.values()).map((member) => ({
-    ...member,
-    name: [member.firstName, member.familyName].filter(Boolean).join(" ").trim(),
-  }));
-
-  const familyTotalAssets = sumBy(members, (m) => m.assets);
-  const familyMonthlyDeposits = sumBy(members, (m) => m.monthlyDeposits);
-  const familyMonthlyPensionWithDeposits = sumBy(
-    members,
-    (m) => m.monthlyPensionWithDeposits
-  );
-  const familyMonthlyPensionWithoutDeposits = sumBy(
-    members,
-    (m) => m.monthlyPensionWithoutDeposits
-  );
-  const familyLumpSumWithDeposits = sumBy(members, (m) => m.lumpSumWithDeposits);
-  const familyLumpSumWithoutDeposits = sumBy(
-    members,
-    (m) => m.lumpSumWithoutDeposits
-  );
-
-  const membersWithShare = members.map((member) => ({
-    ...member,
-    shareOfFamilyAssets:
-      familyTotalAssets > 0
-        ? round2((member.assets / familyTotalAssets) * 100)
-        : 0,
-  }));
-
-  const products = aggregateByName(allProductsRaw);
-  const managers = aggregateByName(
-    allProductsRaw.map((item) => ({
-      name: item.managerName || "לא ידוע",
-      value: item.value || 0,
-    }))
-  );
-
-  const tracks = aggregateTracks(allTracksRaw);
-  const totalTracks = sumBy(tracks, (t) => t.value);
-
-  const weightedEquityExposure =
-    totalTracks > 0
-      ? round2(
-          tracks.reduce((sum, track) => {
-            return sum + (track.value || 0) * ((track.equityPercent || 0) / 100);
-          }, 0) / totalTracks
-        )
-      : 0;
-
-  const beneficiariesCoverageAmount = sumBy(
-    beneficiariesRaw,
-    (item) => item.coverageAmount || 0
-  );
-
-  const loansDetails = uniqueBy(
-    allLoansRaw,
-    (loan) =>
-      [
-        normalizeNameKey(loan.firstName, loan.familyName),
-        loan.amount || 0,
-        loan.balance || 0,
-        normalizeString(loan.repaymentFrequency),
-        normalizeString(loan.endDate),
-      ].join("|")
-  );
-
-  return {
-    family: {
-      lastUpdated: formatToday(),
-      totalAssets: familyTotalAssets,
-      monthlyDeposits: familyMonthlyDeposits,
-      monthlyPensionWithDeposits: familyMonthlyPensionWithDeposits,
-      monthlyPensionWithoutDeposits: familyMonthlyPensionWithoutDeposits,
-      projectedLumpSumWithDeposits: familyLumpSumWithDeposits,
-      projectedLumpSumWithoutDeposits: familyLumpSumWithoutDeposits,
-      retirementAgeLabel: "התחזית מחושבת מתוך שדות Save / Budgets בקבצי ה־XML",
-    },
-
-    members: membersWithShare.map((member) => ({
-      name: member.name || "ללא שם",
-      assets: member.assets || 0,
-      monthlyDeposits: member.monthlyDeposits || 0,
-      monthlyPensionWithDeposits: member.monthlyPensionWithDeposits || 0,
-      monthlyPensionWithoutDeposits: member.monthlyPensionWithoutDeposits || 0,
-      lumpSumWithDeposits: member.lumpSumWithDeposits || 0,
-      lumpSumWithoutDeposits: member.lumpSumWithoutDeposits || 0,
-      deathCoverage: member.deathCoverage || 0,
-      disabilityValue: member.disabilityValue || 0,
-      disabilityPercent: member.disabilityPercent || 0,
-      shareOfFamilyAssets: member.shareOfFamilyAssets || 0,
-    })),
-
-    products: products.map((item) => ({
-      name: item.name,
-      value: item.value,
-    })),
-
-    managers: managers.map((item) => ({
-      name: item.name,
-      value: item.value,
-    })),
-
-    tracks: tracks.map((track) => ({
-      name: track.name,
-      value: track.value,
-      equityPercent: track.equityPercent,
-    })),
-
-    loans: {
-      hasData: loansDetails.length > 0,
-      details: loansDetails.map((loan, index) => ({
-        id:
-          loan.id ||
-          `${loan.firstName || ""}_${loan.familyName || ""}_${loan.endDate || ""}_${index}`,
-        firstName: loan.firstName || "",
-        familyName: loan.familyName || "",
-        amount: loan.amount || 0,
-        repaymentFrequency: loan.repaymentFrequency || "",
-        balance: loan.balance || 0,
-        endDate: loan.endDate || "",
-      })),
-    },
-
-    beneficiaries: {
-      hasData: beneficiariesRaw.length > 0,
-      coverageAmount: beneficiariesCoverageAmount,
-      summary:
-        beneficiariesRaw.length > 0
-          ? "נמצא מידע חלקי על מוטבים / כיסוי"
-          : "לא התקבל מידע",
-    },
-
-    weightedEquityExposure,
-    totalProducts: sumBy(products, (x) => x.value),
-    totalManagers: sumBy(managers, (x) => x.value),
-    totalTracks: totalTracks,
-  };
-}
-
-function getReportRoot(json) {
-  if (!json || typeof json !== "object") return {};
-  const keys = Object.keys(json);
-  if (!keys.length) return {};
-  return json[keys[0]] || {};
-}
-
-function createEmptyMember(firstName, familyName) {
-  return {
-    firstName: firstName || "",
-    familyName: familyName || "",
-    assets: 0,
-    monthlyDeposits: 0,
-    monthlyPensionWithDeposits: 0,
-    monthlyPensionWithoutDeposits: 0,
-    lumpSumWithDeposits: 0,
-    lumpSumWithoutDeposits: 0,
-    deathCoverage: 0,
-    disabilityValue: 0,
-    disabilityPercent: 0,
-  };
-}
-
-function extractMemberDetails(reportRoot) {
-  const memberNode = safeGet(reportRoot, ["MemberDetails"]) || {};
-
-  return {
-    id: getText(memberNode.ID),
-    firstName: getText(memberNode.FirstName),
-    familyName: getText(memberNode.FamilyName),
-    companyName: getText(memberNode.CompanyName),
-    income: normalizeNumber(memberNode.Income),
-  };
-}
-
-function normalizePolicy(policy, ownerFirstName, ownerFamilyName) {
-  const budgets = safeGet(policy, ["Budgets"]) || {};
-  const covers = safeGet(policy, ["Covers"]) || {};
-  const policyDetails = safeGet(policy, ["PolicyDetails"]) || {};
-  const save = safeGet(policy, ["Save"]) || {};
-
-  const productName =
-    getText(budgets.PlanName) ||
-    getText(covers.PlanName) ||
-    getText(save.PlanName) ||
-    getText(budgets.ProposeName2) ||
-    getText(covers.ProposeName2) ||
-    getText(save.ProposeName2) ||
-    "מוצר לא ידוע";
-
-  const managerName =
-    inferManagerName(productName) ||
-    getText(budgets.CompanyName) ||
-    getText(covers.CompanyName) ||
-    "לא ידוע";
-
-  const totalTagWorker = normalizeNumber(budgets.TotalTagWorker);
-  const totalTagEmployer = normalizeNumber(budgets.TotalTagEmployer);
-  const totalCompensetion = normalizeNumber(budgets.TotalCompensetion);
-  const sumCost = normalizeNumber(budgets.SumCost);
-
-  const monthlyDeposits =
-    sumCost || totalTagWorker + totalTagEmployer + totalCompensetion;
-
-  const assets =
-    normalizeNumber(save.TotalItraZvura) ||
-    normalizeNumber(save.ItraZvuraTotalTagAfter2000) +
-      normalizeNumber(save.ItraZvuraCompensetion) +
-      normalizeNumber(save.ItraZvuraTotalTagBefore2000);
-
-  const monthlyPensionWithDeposits =
-    normalizeNumber(save.PensionRetire) ||
-    normalizeNumber(save.TotalPidionsMonthly) ||
-    0;
-
-  const monthlyPensionWithoutDeposits =
-    normalizeNumber(save.RetireCurrBalancePension) || 0;
-
-  const lumpSumWithDeposits =
-    normalizeNumber(save.TotalPidions) ||
-    tryMultiply(
-      normalizeNumber(save.PensionRetire),
-      normalizeNumber(save.HCoff)
-    );
-
-  const lumpSumWithoutDeposits =
-    normalizeNumber(save.RetireCurrBalance) ||
-    tryMultiply(
-      normalizeNumber(save.RetireCurrBalancePension),
-      normalizeNumber(save.HCoff)
-    );
-
-  const deathCoverage =
-    normalizeNumber(covers.TotalBituah) ||
-    normalizeNumber(covers.TotalRisk) ||
-    0;
-
-  const disabilityValue =
-    normalizeNumber(covers.Handicapped) ||
-    normalizeNumber(covers.PensionDisability) ||
-    0;
-
-  const disabilityPercent =
-    extractPercentFromText(getText(policyDetails.ProposeName)) ||
-    0;
-
-  return {
-    firstName: ownerFirstName,
-    familyName: ownerFamilyName,
-    productName,
-    managerName,
-    assets,
-    monthlyDeposits,
-    monthlyPensionWithDeposits,
-    monthlyPensionWithoutDeposits,
-    lumpSumWithDeposits,
-    lumpSumWithoutDeposits,
-    deathCoverage,
-    disabilityValue,
-    disabilityPercent,
-  };
-}
-
-function extractInvestPlans(policy) {
-  const investPlans = toArray(safeGet(policy, ["InvestPlans", "InvestPlan"]));
-
-  return investPlans
-    .map((plan) => {
-      const trackName =
-        getText(plan.PlanNameAfik) ||
-        getText(plan.PlanName) ||
-        getText(plan.ProposeType) ||
-        "מסלול לא ידוע";
-
-      const equityPercent = extractEquityPercentFromInvestPlan(plan);
-
-      return {
-        name: trackName,
-        value: 1,
-        equityPercent,
-      };
-    })
-    .filter((item) => item.name);
-}
-
-function extractEquityPercentFromInvestPlan(plan) {
-  const exposures = toArray(
-    safeGet(plan, ["Properties", "Exposures", "Property"])
-  );
-
-  for (const property of exposures) {
-    const propertyName = normalizeString(getText(property.PropertyName));
-    if (propertyName.includes("חשיפה למניות")) {
-      return normalizeNumber(property.rate);
-    }
-  }
-
-  const mainGroups = toArray(
-    safeGet(plan, ["Properties", "MainGroups", "Property"])
-  );
-
-  for (const property of mainGroups) {
-    const propertyName = normalizeString(getText(property.PropertyName));
-    if (propertyName.includes("מניות")) {
-      return normalizeNumber(property.rate);
-    }
-  }
-
-  return inferEquityPercentFromTrackName(
-    getText(plan.PlanNameAfik) || getText(plan.PlanName)
-  );
-}
-
-function extractLoansFromPolicy(policy, ownerFirstName, ownerFamilyName) {
-  const loans = [];
-  const loanItems = toArray(safeGet(policy, ["Loans", "Loan"]));
-
-  loanItems.forEach((loan, index) => {
-    const amount = normalizeNumber(loan["SCHUM-HALVAA"]);
-    const repaymentFrequency = getText(loan["TADIRUT-HECHZER-HALVAA"]);
-    const balance = normalizeNumber(loan["YITRAT-HALVAA"]);
-    const endDate = getText(loan["TAARICH-SIYUM-HALVAA"]);
-
-    if (!amount && !balance && !repaymentFrequency && !endDate) {
-      return;
-    }
-
-    loans.push({
-      id: `${normalizeNameKey(ownerFirstName, ownerFamilyName)}_${amount}_${balance}_${endDate}_${index}`,
-      firstName: ownerFirstName || "",
-      familyName: ownerFamilyName || "",
-      amount,
-      repaymentFrequency,
-      balance,
-      endDate,
-    });
-  });
-
-  return loans;
-}
-
-function extractBeneficiaries(reportRoot) {
-  const policies = toArray(safeGet(reportRoot, ["Policies", "Policy"]));
-  const results = [];
-
-  for (const policy of policies) {
-    const covers = safeGet(policy, ["Covers"]) || {};
-    const amount = normalizeNumber(covers.TotalBituah);
-
-    if (amount > 0) {
-      results.push({
-        coverageAmount: amount,
-      });
-    }
-  }
-
-  return results;
-}
-
-function aggregateByName(items) {
-  const map = new Map();
-
-  for (const item of items) {
-    const name = (item.name || "לא ידוע").trim();
-    const value = Number(item.value || 0);
-
-    if (!name || value <= 0) continue;
-
-    if (!map.has(name)) {
-      map.set(name, { name, value: 0 });
-    }
-
-    map.get(name).value += value;
-  }
-
-  return Array.from(map.values()).sort((a, b) => b.value - a.value);
-}
-
-function aggregateTracks(items) {
-  const map = new Map();
-
-  for (const item of items) {
-    const name = item.name || "מסלול לא ידוע";
-    const value = Number(item.value || 0);
-    const equityPercent = Number(item.equityPercent || 0);
-
-    if (!map.has(name)) {
-      map.set(name, {
-        name,
-        value: 0,
-        equityPercent,
-      });
-    }
-
-    const target = map.get(name);
-    target.value += value;
-    target.equityPercent =
-      target.equityPercent > 0 ? target.equityPercent : equityPercent;
-  }
-
-  return Array.from(map.values()).sort((a, b) => b.value - a.value);
-}
-
-function parseXmlToJson(xmlString) {
+function parseXmlDocument(rawXml) {
+  const sanitized = sanitizeXml(rawXml);
   const parser = new DOMParser();
-  const xml = parser.parseFromString(xmlString, "application/xml");
+  const doc = parser.parseFromString(sanitized, "application/xml");
 
-  const parserError = xml.getElementsByTagName("parsererror");
-  if (parserError.length > 0) {
-    throw new Error("קובץ XML לא תקין");
+  const parserError = doc.querySelector("parsererror");
+  if (parserError) {
+    throw new Error("XML parse error: " + parserError.textContent);
   }
 
-  return {
-    [xml.documentElement.nodeName]: xmlNodeToJson(xml.documentElement),
-  };
+  return doc;
 }
 
-function xmlNodeToJson(node) {
-  if (node.nodeType === 3) {
-    const text = (node.nodeValue || "").trim();
-    return text || null;
-  }
-
-  if (node.nodeType !== 1) return null;
-
-  const obj = {};
-
-  if (node.attributes && node.attributes.length > 0) {
-    for (const attr of Array.from(node.attributes)) {
-      obj[`@${attr.nodeName}`] = attr.nodeValue;
-    }
-  }
-
-  const childNodes = Array.from(node.childNodes || []).filter((child) => {
-    if (child.nodeType === 3) {
-      return (child.nodeValue || "").trim();
-    }
-    return child.nodeType === 1;
-  });
-
-  if (childNodes.length === 0) {
-    return (node.textContent || "").trim();
-  }
-
-  for (const child of childNodes) {
-    if (child.nodeType === 3) {
-      const text = (child.nodeValue || "").trim();
-      if (text) {
-        obj["#text"] = text;
-      }
-      continue;
-    }
-
-    const childName = child.nodeName;
-    const childJson = xmlNodeToJson(child);
-
-    if (obj[childName] === undefined) {
-      obj[childName] = childJson;
-    } else if (Array.isArray(obj[childName])) {
-      obj[childName].push(childJson);
-    } else {
-      obj[childName] = [obj[childName], childJson];
-    }
-  }
-
-  return obj;
+function getFirst(root, tag) {
+  return root?.querySelector?.(tag) || null;
 }
 
-function safeGet(obj, path) {
-  let current = obj;
-
-  for (const key of path) {
-    if (current === null || current === undefined) return undefined;
-    current = current[key];
-  }
-
-  return current;
+function getText(root, tag) {
+  return getFirst(root, tag)?.textContent?.trim() || "";
 }
 
-function toArray(value) {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
 
-function getText(value) {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value).trim();
-  }
+function normalizeText(value) {
+  return stripHtml(value).replace(/\s+/g, " ").trim();
+}
 
-  if (typeof value === "object") {
-    if (value["#text"] !== undefined) {
-      return String(value["#text"] || "").trim();
-    }
-    if (value._ !== undefined) {
-      return String(value._ || "").trim();
-    }
-  }
+function parseNumber(value) {
+  if (value === null || value === undefined) return null;
 
+  const clean = normalizeText(value)
+    .replace(/₪/g, "")
+    .replace(/%/g, "")
+    .replace(/,/g, "")
+    .trim();
+
+  if (!clean || clean === "-" || clean === "לא פעילה") return null;
+
+  const num = Number(clean);
+  return Number.isFinite(num) ? num : null;
+}
+
+function parseIntSafe(value) {
+  const num = parseNumber(value);
+  return num === null ? null : Math.round(num);
+}
+
+function sumNullable(values) {
+  return values.reduce((acc, val) => acc + (val ?? 0), 0);
+}
+
+function formatDateForReport(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return ` ${day}/${month}/${year}`;
+}
+
+function pickFirstText(sectionRoots, tag) {
+  for (const section of sectionRoots) {
+    if (!section) continue;
+    const value = getText(section, tag);
+    if (value) return value;
+  }
   return "";
 }
 
-function normalizeString(value) {
-  return getText(value).replace(/\s+/g, " ").trim().toLowerCase();
+function parseInvestProperties(root, selector) {
+  if (!root) return [];
+
+  return Array.from(root.querySelectorAll(selector)).map((node) => ({
+    id: getText(node, "PropertyID"),
+    name: getText(node, "PropertyName"),
+    rate: parseNumber(getText(node, "rate")),
+  }));
 }
 
-function normalizeNumber(value) {
-  const raw = getText(value);
-  if (!raw) return 0;
+function inferEquityFromTrackName(name = "") {
+  const text = String(name).toLowerCase();
 
-  const cleaned = raw
-    .replace(/₪/g, "")
-    .replace(/\s/g, "")
-    .replace(/,/g, "")
-    .replace(/%/g, "")
-    .replace(/[^\d.-]/g, "");
-
-  if (!cleaned || cleaned === "-" || cleaned === ".") return 0;
-
-  const num = Number(cleaned);
-  return Number.isFinite(num) ? num : 0;
-}
-
-function normalizeNameKey(firstName, familyName) {
-  return `${normalizeString(firstName)}|${normalizeString(familyName)}`;
-}
-
-function sumBy(array, selector) {
-  return (array || []).reduce((sum, item) => sum + Number(selector(item) || 0), 0);
-}
-
-function uniqueBy(array, keyFn) {
-  const map = new Map();
-
-  for (const item of array) {
-    const key = keyFn(item);
-    if (!map.has(key)) {
-      map.set(key, item);
-    }
+  if (
+    text.includes("מניות") ||
+    text.includes("s&p") ||
+    text.includes("מחקה") ||
+    text.includes("מניית")
+  ) {
+    return 90;
   }
 
-  return Array.from(map.values());
+  if (
+    text.includes("כללי") ||
+    text.includes("general") ||
+    text.includes('אג"ח + מניות') ||
+    text.includes("משולב")
+  ) {
+    return 45;
+  }
+
+  if (
+    text.includes('אג"ח') ||
+    text.includes("bond") ||
+    text.includes("שקלי") ||
+    text.includes("כספי")
+  ) {
+    return 10;
+  }
+
+  return 25;
 }
 
-function round2(value) {
-  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+function parseInvestPlans(policyNode) {
+  const plansRoot = policyNode.querySelector("InvestPlans");
+  if (!plansRoot) return [];
+
+  const planNodes = Array.from(plansRoot.querySelectorAll("InvestPlan"));
+
+  return planNodes.map((plan) => {
+    const exposures = parseInvestProperties(
+      plan,
+      "Properties > Exposures > Property"
+    );
+    const mainGroups = parseInvestProperties(
+      plan,
+      "Properties > MainGroups > Property"
+    );
+
+    const equityExposure =
+      exposures.find((p) => (p.name || "").includes("מניות"))?.rate ??
+      mainGroups.find((p) => (p.name || "").includes("מניות"))?.rate ??
+      inferEquityFromTrackName(getText(plan, "PlanNameAfik"));
+
+    return {
+      mofid: getText(plan, "MOFID"),
+      proposeType: getText(plan, "ProposeType"),
+      planName: getText(plan, "PlanName"),
+      trackName: getText(plan, "PlanNameAfik"),
+      avgRate12: parseNumber(getText(plan, "AvgRate12")),
+      avgRate36: parseNumber(getText(plan, "AvgRate36")),
+      avgRate60: parseNumber(getText(plan, "AvgRate60")),
+      totalRate12: parseNumber(getText(plan, "RateTotal12Months")),
+      totalRate36: parseNumber(getText(plan, "RateTotal36Months")),
+      totalRate60: parseNumber(getText(plan, "RateTotal60Months")),
+      standardDeviation36: parseNumber(getText(plan, "ST36Months")),
+      sharp: parseNumber(getText(plan, "SharpAnaf")),
+      directExpenses: parseNumber(getText(plan, "DirectExpences")),
+      totalExpenses: parseNumber(getText(plan, "TotalExpenses")),
+      mainGroups,
+      exposures,
+      equityExposure,
+    };
+  });
 }
 
-function formatToday() {
-  return new Intl.DateTimeFormat("he-IL").format(new Date());
+// =========================
+// הוספת חלק ההלוואות
+// =========================
+function parseLoans(policyNode) {
+  const loansRoot = policyNode.querySelector("Loans");
+  if (!loansRoot) return [];
+
+  const loanNodes = Array.from(loansRoot.querySelectorAll("Loan"));
+
+  return loanNodes
+    .map((loanNode, index) => ({
+      rowNum: index + 1,
+      amount: parseNumber(getText(loanNode, "SCHUM-HALVAA")),
+      repaymentFrequency: normalizeText(
+        getText(loanNode, "TADIRUT-HECHZER-HALVAA")
+      ),
+      balance: parseNumber(getText(loanNode, "YITRAT-HALVAA")),
+      endDate: normalizeText(getText(loanNode, "TAARICH-SIYUM-HALVAA")),
+    }))
+    .filter(
+      (loan) =>
+        loan.amount !== null ||
+        loan.balance !== null ||
+        !!loan.repaymentFrequency ||
+        !!loan.endDate
+    );
 }
 
-function tryMultiply(a, b) {
-  const x = Number(a || 0);
-  const y = Number(b || 0);
-  if (!x || !y) return 0;
-  return x * y;
+function parsePolicy(policyNode) {
+  const budgets = policyNode.querySelector("Budgets");
+  const covers = policyNode.querySelector("Covers");
+  const save = policyNode.querySelector("Save");
+  const details = policyNode.querySelector("PolicyDetails");
+
+  const sectionRoots = [budgets, covers, save, details];
+
+  const productType = pickFirstText(sectionRoots, "ProposeName2");
+  const planName = pickFirstText(sectionRoots, "PlanName");
+
+  const managerName =
+    pickFirstText(sectionRoots, "CompanyName") ||
+    pickFirstText(sectionRoots, "YeshutName") ||
+    pickFirstText(sectionRoots, "ProducerName") ||
+    pickFirstText(sectionRoots, "MenahelName") ||
+    pickFirstText(sectionRoots, "FundName") ||
+    productType ||
+    "לא ידוע";
+
+  return {
+    rowNum: Number(policyNode.getAttribute("RowNum") || 0),
+    policyNo: pickFirstText(sectionRoots, "PolicyNo"),
+    productType,
+    planName,
+    managerName,
+    memberType: pickFirstText([budgets, save], "MemberTypeName"),
+    joinDate: pickFirstText(sectionRoots, "JoinDate") || null,
+    dateOfRights: pickFirstText(sectionRoots, "DateOfRights") || null,
+    salary: parseNumber(getText(budgets || policyNode, "Salary")),
+
+    monthlyDeposits: {
+      worker: parseNumber(getText(budgets || policyNode, "TotalTagWorker")),
+      employer: parseNumber(getText(budgets || policyNode, "TotalTagEmployer")),
+      compensation: parseNumber(
+        getText(budgets || policyNode, "TotalCompensetion")
+      ),
+      sumCost: parseNumber(getText(budgets || policyNode, "SumCost")),
+      disabilityWorkerCost: parseNumber(
+        getText(budgets || policyNode, "DisCost1")
+      ),
+      disabilityEmployerCost: parseNumber(
+        getText(budgets || policyNode, "DisCostEmployer1")
+      ),
+      rateWorker: parseNumber(getText(budgets || policyNode, "RateTagWorker")),
+      rateEmployer: parseNumber(
+        getText(budgets || policyNode, "RateTagEmployer")
+      ),
+      rateCompensation: parseNumber(
+        getText(budgets || policyNode, "RateCompensetion")
+      ),
+    },
+
+    coverage: {
+      totalInsurance: parseNumber(getText(covers || policyNode, "TotalBituah")),
+      totalRisk: parseNumber(getText(covers || policyNode, "TotalRisk")),
+      disabilityPension: parseNumber(
+        getText(covers || policyNode, "PensionDisability")
+      ),
+      disabilityCost: parseNumber(
+        getText(covers || policyNode, "CostForDisability")
+      ),
+      orphanPension: parseNumber(getText(covers || policyNode, "PensionOrphan")),
+      widowPension: parseNumber(getText(covers || policyNode, "PensionAlmana")),
+      relativesPension: parseNumber(
+        getText(covers || policyNode, "PensionRelatives")
+      ),
+      totalMonthlyCoverCost: parseNumber(getText(covers || policyNode, "TotalSum")),
+    },
+
+    savings: {
+      before2000: parseNumber(
+        getText(save || policyNode, "ItraZvuraTotalTagBefore2000")
+      ),
+      after2000: parseNumber(
+        getText(save || policyNode, "ItraZvuraTotalTagAfter2000")
+      ),
+      compensation: parseNumber(
+        getText(save || policyNode, "ItraZvuraCompensetion")
+      ),
+      totalAccumulated: parseNumber(getText(save || policyNode, "TotalItraZvura")),
+
+      // חשוב: אלו השדות האמיתיים כפי שהגדרת
+      retireCurrBalance: parseNumber(
+        getText(save || policyNode, "RetireCurrBalance")
+      ),
+      totalPidions: parseNumber(
+        getText(save || policyNode, "TotalPidions")
+      ),
+      retireCurrBalancePension: parseNumber(
+        getText(save || policyNode, "RetireCurrBalancePension")
+      ),
+      pensionRetire: parseNumber(
+        getText(save || policyNode, "PensionRetire")
+      ),
+
+      projectedRetirementBalance: parseNumber(
+        getText(save || policyNode, "RetireCurrBalance")
+      ),
+      projectedMonthlyPension: parseNumber(
+        getText(save || policyNode, "PensionRetire")
+      ),
+      totalRedemptions: parseNumber(getText(save || policyNode, "TotalPidions")),
+      hCoeff: parseNumber(getText(save || policyNode, "HCoff")),
+    },
+
+    details: {
+      proposeName: getText(details || policyNode, "ProposeName"),
+      targetPlan: getText(details || policyNode, "TargetPlan"),
+      annuityType: getText(details || policyNode, "AnnuityType"),
+      retireAge: parseIntSafe(getText(details || policyNode, "RetireAge")),
+      agePremiaYear: parseIntSafe(getText(details || policyNode, "AgePremiaYear")),
+      managementFeeFromDeposit: parseNumber(
+        getText(details || policyNode, "DNihulPremia")
+      ),
+      managementFeeFromBalance: parseNumber(
+        getText(details || policyNode, "DNFromHon")
+      ),
+      expectedReturn: parseNumber(getText(details || policyNode, "GetYield")),
+    },
+
+    investPlans: parseInvestPlans(policyNode),
+
+    // הוספה חדשה
+    loans: parseLoans(policyNode),
+  };
 }
 
-function inferManagerName(productName = "") {
-  const name = getText(productName);
+function parseSummary(doc) {
+  const budget = doc.querySelector("Summary > Budget");
+  const cover = doc.querySelector("Summary > Cover");
+  const brutoSave = doc.querySelector("Summary > Save > Bruto");
+  const netoSave = doc.querySelector("Summary > Save > Neto");
 
-  if (!name) return "לא ידוע";
-  if (name.includes("מגדל")) return "מגדל";
-  if (name.includes("הראל")) return "הראל";
-  if (name.includes("כלל")) return "כלל";
-  if (name.includes("מנורה")) return "מנורה מבטחים";
-  if (name.includes("הפניקס")) return "הפניקס";
-  if (name.includes("אלטשולר")) return "אלטשולר שחם";
-  if (name.includes("מור")) return "מור";
-  if (name.includes("מיטב")) return "מיטב";
-  if (name.includes("אנליסט")) return "אנליסט";
-  return "לא ידוע";
+  return {
+    budget: {
+      worker: parseNumber(getText(budget || doc, "TotalTagWorker")),
+      employer: parseNumber(getText(budget || doc, "TotalTagEmployer")),
+      compensation: parseNumber(getText(budget || doc, "TotalCompensetion")),
+      sumCost: parseNumber(getText(budget || doc, "SumCost")),
+      disabilityWorkerCost: parseNumber(getText(budget || doc, "DisCost1")),
+      disabilityEmployerCost: parseNumber(
+        getText(budget || doc, "DisCostEmployer1")
+      ),
+    },
+    cover: {
+      totalInsurance: parseNumber(getText(cover || doc, "TotalBituah")),
+      totalRisk: parseNumber(getText(cover || doc, "TotalRisk")),
+      disabilityPension: parseNumber(getText(cover || doc, "PensionDisability")),
+      disabilityCost: parseNumber(getText(cover || doc, "CostForDisability")),
+      orphanPension: parseNumber(getText(cover || doc, "PensionOrphan")),
+      widowPension: parseNumber(getText(cover || doc, "PensionAlmana")),
+      relativesPension: parseNumber(getText(cover || doc, "PensionRelatives")),
+      totalMonthlyCoverCost: parseNumber(getText(cover || doc, "TotalSum")),
+    },
+    save: {
+      totalAccumulated: parseNumber(getText(brutoSave || doc, "TotalItraZvura")),
+
+      // מיפוי ישיר של שדות summary
+      withDepositsLumpSumField: parseNumber(
+        getText(brutoSave || doc, "TotalPidions")
+      ),
+      withoutDepositsLumpSumField: parseNumber(
+        getText(netoSave || brutoSave || doc, "RetireCurrBalance")
+      ),
+      withDepositsMonthlyPensionField: parseNumber(
+        getText(brutoSave || doc, "PensionRetire")
+      ),
+      withoutDepositsMonthlyPensionField: parseNumber(
+        getText(netoSave || brutoSave || doc, "RetireCurrBalancePension")
+      ),
+
+      projectedRetirementBalance: parseNumber(
+        getText(brutoSave || doc, "RetireCurrBalance")
+      ),
+      projectedMonthlyPension: parseNumber(
+        getText(brutoSave || doc, "PensionRetire")
+      ),
+      totalRedemptions: parseNumber(getText(brutoSave || doc, "TotalPidions")),
+      retireCurrBalancePension: parseNumber(
+        getText(netoSave || brutoSave || doc, "RetireCurrBalancePension")
+      ),
+      before2000: parseNumber(
+        getText(brutoSave || doc, "ItraZvuraTotalTagBefore2000")
+      ),
+      after2000: parseNumber(
+        getText(brutoSave || doc, "ItraZvuraTotalTagAfter2000")
+      ),
+      compensation: parseNumber(
+        getText(brutoSave || doc, "ItraZvuraCompensetion")
+      ),
+    },
+  };
 }
 
-function extractPercentFromText(text = "") {
-  const str = getText(text);
-  const match = str.match(/(\d+(?:\.\d+)?)%/);
-  return match ? Number(match[1]) : 0;
+export function parsePensionXml(rawXml, fileName = "") {
+  const doc = parseXmlDocument(rawXml);
+
+  const memberNode = doc.querySelector("MemberDetails");
+  if (!memberNode) {
+    throw new Error("MemberDetails not found in XML");
+  }
+
+  const firstName = normalizeText(getText(memberNode, "FirstName"));
+  const lastName = normalizeText(getText(memberNode, "FamilyName"));
+
+  const member = {
+    id: normalizeText(getText(memberNode, "ID")),
+    firstName,
+    lastName,
+    fullName: [firstName, lastName].filter(Boolean).join(" "),
+    companyName: normalizeText(getText(memberNode, "CompanyName")),
+    income: parseNumber(getText(memberNode, "Income")),
+  };
+
+  const policyNodes = Array.from(doc.querySelectorAll("Policies > Policy"));
+  const policies = policyNodes
+    .map(parsePolicy)
+    .sort((a, b) => a.rowNum - b.rowNum);
+  const summary = parseSummary(doc);
+
+  return {
+    fileName,
+    rawXmlPreview: sanitizeXml(rawXml).slice(0, 3000),
+    member,
+    policies,
+    summary,
+  };
 }
 
-function inferEquityPercentFromTrackName(trackName = "") {
-  const s = normalizeString(trackName);
+export async function parsePensionXmlFile(file) {
+  const rawXml = await file.text();
+  return parsePensionXml(rawXml, file.name);
+}
 
-  if (s.includes("מניות") || s.includes("מניית")) return 100;
-  if (s.includes("אג\"ח") || s.includes("אגח")) return 10;
-  if (s.includes("הלכה")) return 25;
-  if (s.includes("סולידי")) return 5;
-  if (s.includes("כללי")) return 35;
-  if (s.includes("עד גיל 50")) return 60;
-  if (s.includes("50 עד 60")) return 45;
-  if (s.includes("60 ומעלה")) return 25;
+export async function parseMultiplePensionXmlFiles(files) {
+  return Promise.all(files.map(parsePensionXmlFile));
+}
 
-  return 30;
+function groupBySum(items, getKey, getValue) {
+  const map = new Map();
+
+  items.forEach((item) => {
+    const key = getKey(item) || "לא ידוע";
+    const value = getValue(item) || 0;
+    map.set(key, (map.get(key) || 0) + value);
+  });
+
+  return Array.from(map.entries())
+    .map(([name, value]) => ({ name, value }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
+}
+
+function uniquePolicies(policies) {
+  const seen = new Set();
+
+  return policies.filter((policy) => {
+    const key = [
+      policy.ownerId || "",
+      policy.rowNum || "",
+      policy.policyNo || "",
+      policy.productType || "",
+      policy.planName || "",
+    ].join("|");
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isLifeInsurancePolicy(policy) {
+  const text = [
+    policy.productType,
+    policy.planName,
+    policy.details?.proposeName,
+    policy.details?.targetPlan,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return (
+    text.includes("ביטוח חיים") ||
+    text.includes("חיים") ||
+    text.includes("ריסק")
+  );
+}
+
+function isNoCoeffPolicy(policy) {
+  const coeff = policy?.savings?.hCoeff;
+  return coeff === null || coeff === undefined || coeff === 0;
+}
+
+function buildTracks(flatPolicies) {
+  const tracksRaw = [];
+
+  flatPolicies.forEach((policy) => {
+    const plans = policy.investPlans || [];
+    const policyValue = policy.savings.totalAccumulated || 0;
+
+    if (!plans.length && policyValue > 0) {
+      tracksRaw.push({
+        name: policy.planName || policy.productType || "מסלול לא ידוע",
+        value: policyValue,
+        equityPercent: inferEquityFromTrackName(
+          policy.planName || policy.productType || ""
+        ),
+      });
+      return;
+    }
+
+    const divisor = plans.length || 1;
+
+    plans.forEach((plan) => {
+      tracksRaw.push({
+        name:
+          plan.trackName ||
+          plan.planName ||
+          policy.planName ||
+          "מסלול לא ידוע",
+        value: policyValue / divisor,
+        equityPercent:
+          plan.equityExposure ??
+          inferEquityFromTrackName(plan.trackName || plan.planName || ""),
+      });
+    });
+  });
+
+  const grouped = new Map();
+
+  tracksRaw.forEach((track) => {
+    const current = grouped.get(track.name) || {
+      name: track.name,
+      value: 0,
+      weightedEquity: 0,
+    };
+
+    current.value += track.value || 0;
+    current.weightedEquity +=
+      (track.value || 0) * (track.equityPercent || 0);
+
+    grouped.set(track.name, current);
+  });
+
+  return Array.from(grouped.values())
+    .map((track) => ({
+      name: track.name,
+      value: track.value,
+      equityPercent:
+        track.value > 0
+          ? Math.round(track.weightedEquity / track.value)
+          : 0,
+    }))
+    .filter((track) => track.value > 0)
+    .sort((a, b) => b.value - a.value);
+}
+
+export function buildLegacyReportData(parsedFiles) {
+  const files = Array.isArray(parsedFiles) ? parsedFiles : [];
+
+  const flatPolicies = files.flatMap((file) =>
+    (file.policies || []).map((policy) => ({
+      ...policy,
+      ownerName: file.member.fullName,
+      ownerId: file.member.id,
+      ownerFile: file.fileName,
+      ownerFirstName: file.member.firstName,
+      ownerLastName: file.member.lastName,
+    }))
+  );
+
+  const noCoeffPolicies = flatPolicies.filter(isNoCoeffPolicy);
+  const lifeInsurancePolicies = flatPolicies.filter(isLifeInsurancePolicy);
+
+  const insurancePolicies = uniquePolicies([
+    ...noCoeffPolicies,
+    ...lifeInsurancePolicies,
+  ]);
+
+  const totalAssets = sumNullable(
+    files.map((f) => f.summary?.save?.totalAccumulated)
+  );
+
+  const monthlyDeposits = sumNullable(
+    files.map((f) => f.summary?.budget?.sumCost)
+  );
+
+  // קצבה עם הפקדות - שדה PensionRetire
+  const monthlyPensionWithDeposits = sumNullable(
+    files.map((f) => f.summary?.save?.withDepositsMonthlyPensionField)
+  );
+
+  // קצבה ללא הפקדות - שדה RetireCurrBalancePension
+  const monthlyPensionWithoutDeposits = sumNullable(
+    files.map((f) => f.summary?.save?.withoutDepositsMonthlyPensionField)
+  );
+
+  // חד הוני ללא הפקדות - בכל מוצר ללא HCoff, לקחת RetireCurrBalance
+  const projectedLumpSumWithoutDeposits = sumNullable(
+    noCoeffPolicies.map((p) => p.savings?.retireCurrBalance)
+  );
+
+  // חד הוני עם הפקדות - באותה לוגיקה, אבל לקחת TotalPidions
+  const projectedLumpSumWithDeposits = sumNullable(
+    noCoeffPolicies.map((p) => p.savings?.totalPidions)
+  );
+
+  // סכום ביטוח - צבירה נוכחית של כל מוצר ללא HCoff + ביטוח חיים
+  const totalInsurance = sumNullable(
+    insurancePolicies.map((p) => p.savings?.totalAccumulated)
+  );
+
+  const retirementAges = Array.from(
+    new Set(
+      flatPolicies
+        .map((p) => p.details?.retireAge)
+        .filter((v) => Number.isFinite(v) && v > 0)
+    )
+  ).sort((a, b) => a - b);
+
+  const retirementAgeLabel = retirementAges.length
+    ? `התחזית מבוססת על גילי הפרישה שהוגדרו בדוחות (${retirementAges.join(
+        ", "
+      )}).`
+    : "התחזית מבוססת על גילי הפרישה שהוגדרו בדוחות.";
+
+  const members = files.map((file) => {
+    const memberPolicies = flatPolicies.filter(
+      (policy) => policy.ownerId === file.member.id
+    );
+
+    const memberNoCoeff = memberPolicies.filter(isNoCoeffPolicy);
+    const memberLife = memberPolicies.filter(isLifeInsurancePolicy);
+    const memberInsurancePolicies = uniquePolicies([
+      ...memberNoCoeff,
+      ...memberLife,
+    ]);
+
+    const assets = file.summary?.save?.totalAccumulated || 0;
+    const monthlyDepositsMember = file.summary?.budget?.sumCost || 0;
+
+    const deathCoverage = sumNullable(
+      memberInsurancePolicies.map((p) => p.savings?.totalAccumulated)
+    );
+
+    const disabilityValue = sumNullable(
+      memberPolicies.map(
+        (p) => p.coverage?.disabilityPension ?? p.coverage?.totalRisk ?? 0
+      )
+    );
+
+    const salaryBase = Math.max(
+      0,
+      ...memberPolicies.map((p) => p.salary || 0),
+      file.member.income || 0
+    );
+
+    const disabilityPercent =
+      salaryBase > 0
+        ? Math.round((disabilityValue / salaryBase) * 100)
+        : 0;
+
+    return {
+      name: file.member.fullName || "ללא שם",
+      shareOfFamilyAssets:
+        totalAssets > 0 ? Math.round((assets / totalAssets) * 100) : 0,
+      monthlyDeposits: monthlyDepositsMember,
+      assets,
+
+      monthlyPensionWithDeposits:
+        file.summary?.save?.withDepositsMonthlyPensionField || 0,
+
+      monthlyPensionWithoutDeposits:
+        file.summary?.save?.withoutDepositsMonthlyPensionField || 0,
+
+      lumpSumWithDeposits: sumNullable(
+        memberNoCoeff.map((p) => p.savings?.totalPidions)
+      ),
+
+      lumpSumWithoutDeposits: sumNullable(
+        memberNoCoeff.map((p) => p.savings?.retireCurrBalance)
+      ),
+
+      deathCoverage,
+      disabilityValue,
+      disabilityPercent,
+    };
+  });
+
+  const products = groupBySum(
+    flatPolicies,
+    (p) => p.productType || "ללא סוג",
+    (p) => p.savings?.totalAccumulated || 0
+  );
+
+  const managers = groupBySum(
+    flatPolicies,
+    (p) => p.managerName || "לא ידוע",
+    (p) => p.savings?.totalAccumulated || 0
+  );
+
+  const tracks = buildTracks(flatPolicies);
+  const totalProducts = sumNullable(products.map((p) => p.value));
+  const totalManagers = sumNullable(managers.map((p) => p.value));
+  const totalTracks = sumNullable(tracks.map((t) => t.value));
+
+  const weightedEquityExposure =
+    totalTracks > 0
+      ? Math.round(
+          tracks.reduce(
+            (acc, track) =>
+              acc + (track.value || 0) * (track.equityPercent || 0),
+            0
+          ) / totalTracks
+        )
+      : 0;
+
+  // =========================
+  // הוספת איסוף הלוואות
+  // =========================
+  const loanDetails = flatPolicies.flatMap((policy) =>
+    (policy.loans || []).map((loan, index) => ({
+      id:
+        [
+          policy.ownerId || "",
+          policy.policyNo || "",
+          policy.rowNum || "",
+          index,
+          loan.amount ?? "",
+          loan.balance ?? "",
+          loan.endDate || "",
+        ].join("|"),
+      firstName: policy.ownerFirstName || "",
+      familyName: policy.ownerLastName || "",
+      amount: loan.amount ?? 0,
+      repaymentFrequency: loan.repaymentFrequency || "",
+      balance: loan.balance ?? 0,
+      endDate: loan.endDate || "",
+      policyNo: policy.policyNo || "",
+      productType: policy.productType || "",
+      planName: policy.planName || "",
+    }))
+  );
+
+  const uniqueLoanMap = new Map();
+  loanDetails.forEach((loan) => {
+    const key = [
+      loan.firstName,
+      loan.familyName,
+      loan.amount,
+      loan.balance,
+      loan.repaymentFrequency,
+      loan.endDate,
+      loan.policyNo,
+    ].join("|");
+
+    if (!uniqueLoanMap.has(key)) {
+      uniqueLoanMap.set(key, loan);
+    }
+  });
+
+  const uniqueLoanDetails = Array.from(uniqueLoanMap.values());
+
+  const reportData = {
+    family: {
+      lastUpdated: formatDateForReport(new Date()),
+      totalAssets,
+      monthlyDeposits,
+      monthlyPensionWithDeposits,
+      projectedLumpSumWithDeposits,
+      monthlyPensionWithoutDeposits,
+      projectedLumpSumWithoutDeposits,
+      retirementAgeLabel,
+      totalInsurance,
+    },
+    members,
+    products,
+    managers,
+    tracks,
+    loans: {
+      hasData: uniqueLoanDetails.length > 0,
+      details: uniqueLoanDetails,
+    },
+    beneficiaries: {
+      hasData: false,
+      coverageAmount: totalInsurance,
+      summary:
+        totalInsurance > 0
+          ? "זוהה כיסוי / סכום ביטוח במוצרים הרלוונטיים"
+          : "לא התקבל מידע",
+    },
+    weightedEquityExposure,
+    totalProducts,
+    totalManagers,
+    totalTracks,
+    rawParsedFiles: files.map((file) => ({
+      fileName: file.fileName,
+      memberName: file.member.fullName,
+      parsedData: {
+        member: file.member,
+        summary: file.summary,
+        policies: file.policies,
+        rawTextPreview: file.rawXmlPreview,
+      },
+    })),
+  };
+
+  return reportData;
 }
