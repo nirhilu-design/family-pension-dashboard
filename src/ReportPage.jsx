@@ -39,6 +39,61 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
   const formatCurrency = (value) =>
     `₪${Number(value || 0).toLocaleString("en-US")}`;
 
+  const formatDate = (value) => {
+    if (!value) return "—";
+
+    const str = String(value).trim();
+
+    if (/^\d{8}$/.test(str)) {
+      const y = str.slice(0, 4);
+      const m = str.slice(4, 6);
+      const d = str.slice(6, 8);
+      return `${d}/${m}/${y}`;
+    }
+
+    const date = new Date(str);
+    if (!isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat("he-IL").format(date);
+    }
+
+    return str;
+  };
+
+  const normalizedLoanDetails = Array.isArray(loans?.details)
+    ? loans.details
+        .map((loan, index) => ({
+          id:
+            loan.id ||
+            `${loan.firstName || ""}_${loan.familyName || ""}_${loan.endDate || ""}_${index}`,
+          firstName: loan.firstName || "",
+          familyName: loan.familyName || "",
+          amount: Number(loan.amount || 0),
+          repaymentFrequency: loan.repaymentFrequency || "",
+          balance: Number(loan.balance || 0),
+          endDate: loan.endDate || "",
+        }))
+        .filter(
+          (loan) =>
+            loan.firstName ||
+            loan.familyName ||
+            loan.amount ||
+            loan.balance ||
+            loan.repaymentFrequency ||
+            loan.endDate
+        )
+    : [];
+
+  const groupedLoans = normalizedLoanDetails.reduce((acc, loan) => {
+    const personName = [loan.firstName, loan.familyName].filter(Boolean).join(" ").trim() || "ללא שיוך";
+    if (!acc[personName]) {
+      acc[personName] = [];
+    }
+    acc[personName].push(loan);
+    return acc;
+  }, {});
+
+  const hasDetailedLoans = normalizedLoanDetails.length > 0;
+
   const styles = {
     page: {
       minHeight: "100vh",
@@ -469,6 +524,68 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       fontFamily: "Arial, sans-serif",
       background: "#fffdfb",
     },
+    loanGroup: {
+      background: "#fff",
+      border: "1px solid #E2D1BF",
+      borderRadius: "16px",
+      padding: "14px",
+      marginTop: "12px",
+    },
+    loanPersonName: {
+      fontSize: "18px",
+      fontWeight: 700,
+      color: "#00215D",
+      marginBottom: "12px",
+    },
+    loanSummaryRow: {
+      display: "grid",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+      gap: "12px",
+      marginBottom: "12px",
+    },
+    loanSummaryCard: {
+      background: "#F9F7F3",
+      border: "1px solid #E2D1BF",
+      borderRadius: "14px",
+      padding: "12px",
+    },
+    loanSummaryLabel: {
+      fontSize: "12px",
+      color: "#627D98",
+      marginBottom: "6px",
+    },
+    loanSummaryValue: {
+      fontSize: "18px",
+      fontWeight: 700,
+      color: "#00215D",
+    },
+    loanTableWrap: {
+      overflowX: "auto",
+      marginTop: "8px",
+    },
+    loanTable: {
+      width: "100%",
+      borderCollapse: "collapse",
+      minWidth: "620px",
+      background: "#fff",
+    },
+    loanTh: {
+      textAlign: "right",
+      fontSize: "12px",
+      color: "#627D98",
+      borderBottom: "1px solid #E2D1BF",
+      padding: "10px 8px",
+      fontWeight: 700,
+      whiteSpace: "nowrap",
+    },
+    loanTd: {
+      textAlign: "right",
+      fontSize: "14px",
+      color: "#102A43",
+      borderBottom: "1px solid #F0E6DA",
+      padding: "12px 8px",
+      whiteSpace: "nowrap",
+    },
   };
 
   return (
@@ -790,13 +907,81 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               </div>
 
               <div style={styles.explanation}>
-                כרגע לא זוהה בדוחות מידע מפורט לגבי הלוואות פעילות על חשבון
-                המוצרים הפנסיוניים.
+                הנתונים מוצגים מתוך ה־XML אם ה־parser הזין אותם ל־reportData.loans.details,
+                עם שיוך לפי שם פרטי ושם משפחה.
               </div>
 
-              {!loans.hasData && (
+              {hasDetailedLoans ? (
+                Object.entries(groupedLoans).map(([personName, personLoans]) => {
+                  const totalAmount = personLoans.reduce(
+                    (sum, loan) => sum + (loan.amount || 0),
+                    0
+                  );
+                  const totalBalance = personLoans.reduce(
+                    (sum, loan) => sum + (loan.balance || 0),
+                    0
+                  );
+
+                  return (
+                    <div key={personName} style={styles.loanGroup}>
+                      <div style={styles.loanPersonName}>{personName}</div>
+
+                      <div style={styles.loanSummaryRow}>
+                        <div style={styles.loanSummaryCard}>
+                          <div style={styles.loanSummaryLabel}>סך סכום הלוואות</div>
+                          <div style={styles.loanSummaryValue}>
+                            {formatCurrency(totalAmount)}
+                          </div>
+                        </div>
+
+                        <div style={styles.loanSummaryCard}>
+                          <div style={styles.loanSummaryLabel}>יתרת הלוואות</div>
+                          <div style={styles.loanSummaryValue}>
+                            {formatCurrency(totalBalance)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={styles.loanTableWrap}>
+                        <table style={styles.loanTable}>
+                          <thead>
+                            <tr>
+                              <th style={styles.loanTh}>סכום הלוואה</th>
+                              <th style={styles.loanTh}>תדירות החזר</th>
+                              <th style={styles.loanTh}>יתרת הלוואה</th>
+                              <th style={styles.loanTh}>תאריך סיום</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {personLoans.map((loan) => (
+                              <tr key={loan.id}>
+                                <td style={styles.loanTd}>
+                                  {formatCurrency(loan.amount)}
+                                </td>
+                                <td style={styles.loanTd}>
+                                  {loan.repaymentFrequency || "—"}
+                                </td>
+                                <td style={styles.loanTd}>
+                                  {formatCurrency(loan.balance)}
+                                </td>
+                                <td style={styles.loanTd}>
+                                  {formatDate(loan.endDate)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : !loans.hasData ? (
                 <div style={styles.emptyState}>
                   לא התקבל מידע על הלוואות בשני הקבצים שהועלו.
+                </div>
+              ) : (
+                <div style={styles.emptyState}>
+                  התקבל סטטוס הלוואות, אבל לא הגיע פירוט מלא להצגה.
                 </div>
               )}
             </section>
