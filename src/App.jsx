@@ -2,13 +2,13 @@
 
 import React, { useState } from "react";
 import UploadPage from "./UploadPage";
-import ReportPage from "./ReportPage";
+import ReportPageV2 from "./ReportPageV2";
 
 export default function App() {
   const [reportData, setReportData] = useState(null);
 
   return reportData ? (
-    <ReportPage
+    <ReportPageV2
       reportData={reportData}
       onBack={() => setReportData(null)}
       onResetAll={() => setReportData(null)}
