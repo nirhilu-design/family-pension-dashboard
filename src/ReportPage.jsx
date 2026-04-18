@@ -644,6 +644,18 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       fontFamily: "Arial, sans-serif",
       background: "#fffdfb",
     },
+    recommendationsPrintText: {
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      fontSize: "15px",
+      lineHeight: 1.9,
+      color: "#102A43",
+      background: "#fffdfb",
+      border: "1px solid #D9C8B5",
+      borderRadius: "14px",
+      padding: "16px",
+      minHeight: "120px",
+    },
   };
 
   return (
@@ -655,12 +667,20 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               display: none !important;
             }
 
+            .print-only {
+              display: block !important;
+            }
+
+            .screen-only {
+              display: none !important;
+            }
+
             body {
               background: white !important;
             }
 
             @page {
-              size: A4;
+              size: A4 landscape;
               margin: 12mm;
             }
 
@@ -699,6 +719,16 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             .print-force-new-page {
               break-before: page;
               page-break-before: always;
+            }
+          }
+
+          @media screen {
+            .print-only {
+              display: none !important;
+            }
+
+            .screen-only {
+              display: block !important;
             }
           }
         `}
@@ -1139,12 +1169,18 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
 
             <div style={styles.recommendationsWrap}>
-              <textarea
-                value={recommendations}
-                onChange={(e) => setRecommendations(e.target.value)}
-                style={styles.recommendationsText}
-                placeholder="כתוב כאן המלצות אישיות..."
-              />
+              <div className="screen-only">
+                <textarea
+                  value={recommendations}
+                  onChange={(e) => setRecommendations(e.target.value)}
+                  style={styles.recommendationsText}
+                  placeholder="כתוב כאן המלצות אישיות..."
+                />
+              </div>
+
+              <div className="print-only" style={styles.recommendationsPrintText}>
+                {recommendations}
+              </div>
             </div>
           </section>
         </div>
