@@ -543,6 +543,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "grid",
       gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
       gap: "24px",
+      alignItems: "start",
     },
     emptyState: {
       background: "#F9F7F3",
@@ -653,8 +654,51 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             .no-print {
               display: none !important;
             }
+
             body {
               background: white !important;
+            }
+
+            @page {
+              size: A4;
+              margin: 12mm;
+            }
+
+            .print-section {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+
+            .print-table-block {
+              break-inside: avoid;
+              page-break-inside: avoid;
+              break-before: auto;
+              page-break-before: auto;
+            }
+
+            table {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+
+            thead {
+              display: table-header-group;
+            }
+
+            tfoot {
+              display: table-footer-group;
+            }
+
+            tr,
+            td,
+            th {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+
+            .print-force-new-page {
+              break-before: page;
+              page-break-before: always;
             }
           }
         `}
@@ -684,8 +728,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
         </div>
 
         <div style={styles.container}>
-          {/* Header */}
-          <section style={styles.section}>
+          <section className="print-section" style={styles.section}>
             <div style={styles.topLine}>
               <div style={styles.small}>מעודכן ל{family.lastUpdated}</div>
               <ZviranLogo />
@@ -704,8 +747,10 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </p>
           </section>
 
-          {/* Top KPI row - only 2 cards */}
-          <section style={{ background: "transparent", padding: 0, boxShadow: "none", border: "none" }}>
+          <section
+            className="print-section"
+            style={{ background: "transparent", padding: 0, boxShadow: "none", border: "none" }}
+          >
             <div style={styles.grid2}>
               <KpiCard
                 styles={styles}
@@ -725,8 +770,10 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          {/* Retirement comparisons */}
-          <section style={{ background: "transparent", padding: 0, boxShadow: "none", border: "none" }}>
+          <section
+            className="print-section"
+            style={{ background: "transparent", padding: 0, boxShadow: "none", border: "none" }}
+          >
             <div style={styles.grid2}>
               <ComparisonChartCard
                 styles={styles}
@@ -744,8 +791,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          {/* Products / managers */}
-          <section style={styles.chartSectionGrid}>
+          <section className="print-section" style={styles.chartSectionGrid}>
             <PieCard
               title="חלוקה לפי מוצרים"
               explanation="החלוקה לפי מוצרים מסייעת להבין באילו סוגי חיסכון מנוהל עיקר הכסף המשפחתי."
@@ -765,8 +811,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             />
           </section>
 
-          {/* Equity exposure bar */}
-          <section style={styles.equityCard}>
+          <section className="print-section" style={styles.equityCard}>
             <div style={styles.sectionHeader}>
               <div style={styles.titleWithIcon}>
                 <span>📊</span>
@@ -786,8 +831,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             <EquityBar3D value={weightedEquityExposure} />
           </section>
 
-          {/* Tracks detail - closer to original report */}
-          <section style={styles.section}>
+          <section className="print-section" style={styles.section}>
             <div style={styles.sectionHeader}>
               <div style={styles.titleWithIcon}>
                 <span>📈</span>
@@ -840,8 +884,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          {/* Members */}
-          <section style={styles.section}>
+          <section className="print-section" style={styles.section}>
             <h2 style={styles.h2}>פירוט לפי בני משפחה</h2>
             <div style={styles.explanation}>
               מוצגת תמונת מצב אישית לכל אחד מבני המשפחה, כולל קצבה, סכום חד פעמי,
@@ -933,10 +976,12 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          {/* Loans + beneficiaries */}
-          <section style={{ background: "transparent", padding: 0, boxShadow: "none", border: "none" }}>
+          <section
+            className="print-section"
+            style={{ background: "transparent", padding: 0, boxShadow: "none", border: "none" }}
+          >
             <div style={styles.loansBenefitsGrid}>
-              <section style={styles.section}>
+              <section className="print-section" style={styles.section}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.titleWithIcon}>
                     <span>💳</span>
@@ -961,7 +1006,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                       );
 
                       return (
-                        <div key={personName} style={styles.loanGroup}>
+                        <div className="print-table-block" key={personName} style={styles.loanGroup}>
                           <div style={styles.loanPersonName}>{personName}</div>
 
                           <div style={styles.loanSummaryRow}>
@@ -980,7 +1025,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                             </div>
                           </div>
 
-                          <div style={styles.loanTableWrap}>
+                          <div className="print-table-block" style={styles.loanTableWrap}>
                             <table style={styles.loanTable}>
                               <thead>
                                 <tr>
@@ -1014,7 +1059,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                       );
                     })}
 
-                    <div style={{ ...styles.loanGroup, marginTop: "16px" }}>
+                    <div className="print-table-block" style={{ ...styles.loanGroup, marginTop: "16px" }}>
                       <div style={styles.loanSummaryRow}>
                         <div style={styles.loanSummaryCard}>
                           <div style={styles.loanSummaryLabel}>סה"כ הלוואות</div>
@@ -1043,7 +1088,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                 )}
               </section>
 
-              <section style={styles.beneficiariesCard}>
+              <section className="print-section" style={styles.beneficiariesCard}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.titleWithIcon}>
                     <span>👨‍👩‍👧</span>
@@ -1080,8 +1125,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          {/* Recommendations */}
-          <section style={styles.section}>
+          <section className="print-section" style={styles.section}>
             <div style={styles.sectionHeader}>
               <div style={styles.titleWithIcon}>
                 <span>📝</span>
