@@ -10,16 +10,10 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
 4. מומלץ לבחון את מדיניות ההשקעה ורמת החשיפה למניות בהתאם לפרופיל הסיכון הרצוי.`
   );
 
-  if (!reportData || !reportData.family) {
-    return <div style={{ padding: "40px", direction: "rtl" }}>טוען נתונים...</div>;
-  }
-
-  const handleExportPdf = () => {
-    window.print();
-  };
+  const safeReportData = reportData || {};
 
   const {
-    family,
+    family = {},
     members = [],
     products = [],
     managers = [],
@@ -34,7 +28,11 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     totalProducts = 0,
     totalManagers = 0,
     totalTracks = 0,
-  } = reportData;
+  } = safeReportData;
+
+  const handleExportPdf = () => {
+    window.print();
+  };
 
   const formatCurrency = (value) =>
     `₪${Number(value || 0).toLocaleString("en-US")}`;
@@ -103,7 +101,9 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
   );
 
   const loanRatioToAssets =
-    family.totalAssets > 0 ? (totalLoansAmount / family.totalAssets) * 100 : 0;
+    Number(family.totalAssets || 0) > 0
+      ? (totalLoansAmount / Number(family.totalAssets || 0)) * 100
+      : 0;
 
   const retirementLumpBars = useMemo(() => {
     const withDeposits = Number(family.projectedLumpSumWithDeposits || 0);
@@ -816,6 +816,10 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     },
   };
 
+  if (!reportData || !reportData.family) {
+    return <div style={{ padding: "40px", direction: "rtl" }}>טוען נתונים...</div>;
+  }
+
   return (
     <>
       <style>
@@ -958,7 +962,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
         </div>
 
         <div style={styles.container}>
-          {/* HERO */}
           <section className="print-section responsive-hero" style={styles.heroHeader}>
             <div className="responsive-hero-meta" style={styles.heroMeta}>
               <div style={styles.heroMetaLabel}>תאריך עדכון</div>
@@ -981,7 +984,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          {/* KPI + DONUTS */}
           <section
             className="print-section responsive-grid-4"
             style={styles.topGrid}
@@ -1023,7 +1025,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             />
           </section>
 
-          {/* PROJECTIONS + EQUITY */}
           <section
             className="print-section responsive-grid-3"
             style={styles.compareGrid}
@@ -1065,7 +1066,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </section>
           </section>
 
-          {/* TRACKS + BENEFICIARIES */}
           <section
             className="print-section responsive-mid-grid"
             style={styles.midGrid}
@@ -1187,7 +1187,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          {/* MEMBERS */}
           <section className="print-section" style={styles.sectionCard}>
             <h2 style={styles.h2}>פירוט לפי בני משפחה</h2>
             <div style={styles.explanation}>
@@ -1307,7 +1306,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          {/* LOANS + SIDE */}
           <section
             className="print-section responsive-loans-grid"
             style={styles.loansBenefitsGrid}
@@ -1490,7 +1488,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </section>
           </section>
 
-          {/* RECOMMENDATIONS */}
           <section className="print-section" style={styles.sectionCard}>
             <div style={styles.sectionHeader}>
               <div style={styles.titleWithIcon}>
@@ -1655,7 +1652,8 @@ function DonutSummaryCard({
   formatCurrency,
 }) {
   const safeItems = Array.isArray(items) ? items : [];
-  const safeTotal = total || safeItems.reduce((sum, item) => sum + (item.value || 0), 0) || 1;
+  const safeTotal =
+    total || safeItems.reduce((sum, item) => sum + (item.value || 0), 0) || 1;
 
   let current = 0;
   const segments = safeItems.map((item, index) => {
@@ -1711,9 +1709,9 @@ function DonutSummaryCard({
 
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {segments.length ? (
-            segments.slice(0, 5).map((seg) => (
+            segments.slice(0, 5).map((seg, index) => (
               <div
-                key={seg.name}
+                key={`${seg.name || "item"}-${index}`}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "10px 1fr auto",
