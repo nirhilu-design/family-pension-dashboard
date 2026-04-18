@@ -206,13 +206,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       flexDirection: "column",
       gap: "18px",
     },
-    card: {
-      background: surface,
-      border: `1px solid ${border}`,
-      borderRadius: "18px",
-      boxShadow: "0 2px 10px rgba(16,42,67,0.05)",
-      boxSizing: "border-box",
-    },
     sectionCard: {
       background: surface,
       border: `1px solid ${border}`,
@@ -649,7 +642,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       gap: "10px",
       alignItems: "stretch",
     },
-    divider: {
+    dividerLine: {
       background: divider,
       width: "1px",
     },
@@ -694,7 +687,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     },
     loansBenefitsGrid: {
       display: "grid",
-      gridTemplateColumns: "1.35fr 0.85fr",
+      gridTemplateColumns: "1fr",
       gap: "18px",
       alignItems: "start",
     },
@@ -1235,7 +1228,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                           </div>
                         </div>
 
-                        <div style={styles.divider} />
+                        <div style={styles.dividerLine} />
 
                         <div style={styles.compareMiniSide}>
                           <div style={styles.compareMiniSideLabel}>
@@ -1264,7 +1257,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                           </div>
                         </div>
 
-                        <div style={styles.divider} />
+                        <div style={styles.dividerLine} />
 
                         <div style={styles.compareMiniSide}>
                           <div style={styles.compareMiniSideLabel}>
@@ -1435,56 +1428,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                   התקבל סטטוס הלוואות, אבל לא הגיע פירוט מלא להצגה.
                 </div>
               )}
-            </section>
-
-            <section style={styles.sectionCard}>
-              <div style={styles.sectionHeader}>
-                <div style={styles.titleWithIcon}>
-                  <span>📌</span>
-                  <h2 style={styles.h2}>תובנות תפעוליות</h2>
-                </div>
-              </div>
-
-              <div style={styles.explanation}>
-                אזור מסכם שמרכז כמה נקודות עוגן שימושיות לקריאה מהירה של הדוח.
-              </div>
-
-              <div style={styles.summaryStatsGrid}>
-                <div style={styles.statCard}>
-                  <div style={styles.statLabel}>קצבה עם הפקדות</div>
-                  <div style={styles.statValue}>
-                    {formatCurrency(family.monthlyPensionWithDeposits)}
-                  </div>
-                </div>
-
-                <div style={styles.statCard}>
-                  <div style={styles.statLabel}>קצבה ללא הפקדות</div>
-                  <div style={styles.statValue}>
-                    {formatCurrency(family.monthlyPensionWithoutDeposits)}
-                  </div>
-                </div>
-
-                <div style={styles.statCard}>
-                  <div style={styles.statLabel}>צבירה עם הפקדות</div>
-                  <div style={styles.statValue}>
-                    {formatCurrency(family.projectedLumpSumWithDeposits)}
-                  </div>
-                </div>
-
-                <div style={styles.statCard}>
-                  <div style={styles.statLabel}>צבירה ללא הפקדות</div>
-                  <div style={styles.statValue}>
-                    {formatCurrency(family.projectedLumpSumWithoutDeposits)}
-                  </div>
-                </div>
-              </div>
-
-              <div style={styles.simpleInfoBox}>
-                <div style={styles.infoLabel}>חשיפה מנייתית משוקללת</div>
-                <div style={styles.infoValue}>
-                  {formatPercentLabel(weightedEquityExposure)} · {exposureLabel}
-                </div>
-              </div>
             </section>
           </section>
 
