@@ -207,6 +207,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       padding: "20px",
       boxShadow: "0 2px 10px rgba(16,42,67,0.05)",
       boxSizing: "border-box",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     heroHeader: {
       background: `linear-gradient(135deg, ${title}, ${navy})`,
@@ -218,6 +220,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       gridTemplateColumns: "1fr 2fr 1fr",
       alignItems: "center",
       gap: "16px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     heroMeta: {
       display: "flex",
@@ -264,6 +268,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "grid",
       gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
       gap: "18px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     kpiCard: {
       background: surface,
@@ -276,6 +282,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       justifyContent: "space-between",
       boxShadow: "0 2px 10px rgba(16,42,67,0.05)",
       boxSizing: "border-box",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     kpiIconWrap: {
       width: "54px",
@@ -313,6 +321,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       minHeight: "188px",
       boxShadow: "0 2px 10px rgba(16,42,67,0.05)",
       boxSizing: "border-box",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     donutTitle: {
       margin: 0,
@@ -336,6 +346,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "grid",
       gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
       gap: "18px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     compareCard: {
       background: surface,
@@ -345,6 +357,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       minHeight: "210px",
       boxShadow: "0 2px 10px rgba(16,42,67,0.05)",
       boxSizing: "border-box",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     compareTitle: {
       fontSize: "20px",
@@ -367,6 +381,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "flex",
       flexDirection: "column",
       gap: "8px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     compareBarTop: {
       display: "flex",
@@ -412,6 +428,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       boxSizing: "border-box",
       display: "flex",
       flexDirection: "column",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     equityValueWrap: {
       display: "flex",
@@ -466,6 +484,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "flex",
       flexDirection: "column",
       gap: "18px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     summaryStatsGrid: {
       display: "grid",
@@ -478,6 +498,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       border: `1px solid ${divider}`,
       borderRadius: "14px",
       padding: "14px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     statLabel: {
       fontSize: "12px",
@@ -494,6 +516,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       border: `1px solid ${divider}`,
       borderRadius: "14px",
       padding: "16px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     infoLabel: {
       fontSize: "12px",
@@ -510,6 +534,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "grid",
       gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
       gap: "18px",
+      alignItems: "start",
     },
     memberCard: {
       background: surface,
@@ -518,6 +543,9 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       padding: "18px",
       boxShadow: "0 2px 10px rgba(16,42,67,0.05)",
       boxSizing: "border-box",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
+      alignSelf: "start",
     },
     memberTop: {
       display: "flex",
@@ -550,6 +578,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       padding: "18px",
       textAlign: "center",
       marginBottom: "12px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     centerLabel: {
       fontSize: "13px",
@@ -567,12 +597,15 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
       gap: "12px",
       marginBottom: "12px",
+      alignItems: "start",
     },
     compareMiniCard: {
       background: surfaceAlt,
       border: `1px solid ${divider}`,
       borderRadius: "16px",
       padding: "14px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     compareMiniTitle: {
       fontSize: "12px",
@@ -608,12 +641,15 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "grid",
       gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
       gap: "12px",
+      alignItems: "start",
     },
     insuranceCard: {
       background: surfaceAlt,
       border: `1px solid ${divider}`,
       borderRadius: "14px",
       padding: "12px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     insuranceLabel: {
       fontSize: "12px",
@@ -643,6 +679,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       fontSize: "13px",
       color: textSoft,
       lineHeight: 1.7,
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     loanGroup: {
       background: surfaceAlt,
@@ -650,6 +688,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       borderRadius: "16px",
       padding: "14px",
       marginTop: "12px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     loanPersonName: {
       fontSize: "18px",
@@ -662,12 +702,15 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
       gap: "12px",
       marginBottom: "12px",
+      alignItems: "start",
     },
     loanSummaryCard: {
       background: "#fff",
       border: `1px solid ${divider}`,
       borderRadius: "14px",
       padding: "12px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     loanSummaryLabel: {
       fontSize: "12px",
@@ -685,12 +728,16 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       borderRadius: "14px",
       border: `1px solid ${divider}`,
       background: "#fff",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     loanTable: {
       width: "100%",
       borderCollapse: "collapse",
       minWidth: "620px",
       background: "#fff",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     loanTh: {
       textAlign: "right",
@@ -715,6 +762,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       border: `1px solid ${divider}`,
       borderRadius: "18px",
       padding: "18px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     recommendationsText: {
       width: "100%",
@@ -741,6 +790,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       borderRadius: "14px",
       padding: "16px",
       minHeight: "120px",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
     footer: {
       display: "flex",
@@ -750,6 +801,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       color: textSoft,
       padding: "0 4px 6px",
       flexWrap: "wrap",
+      breakInside: "avoid",
+      pageBreakInside: "avoid",
     },
   };
 
@@ -763,6 +816,36 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
         {`
           * {
             box-sizing: border-box;
+          }
+
+          html, body {
+            margin: 0;
+            padding: 0;
+          }
+
+          .print-section,
+          .avoid-break,
+          .avoid-break * {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          .members-section,
+          .loans-section,
+          .recommendations-section {
+            break-before: auto;
+            page-break-before: auto;
+          }
+
+          table,
+          thead,
+          tbody,
+          tfoot,
+          tr,
+          th,
+          td {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
           }
 
           @media print {
@@ -790,40 +873,27 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             }
 
             .print-section {
-              break-inside: avoid;
-              page-break-inside: avoid;
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
             }
 
             .print-table-block {
-              break-inside: avoid;
-              page-break-inside: avoid;
-              break-before: auto;
-              page-break-before: auto;
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
             }
 
-            table {
-              break-inside: avoid;
-              page-break-inside: avoid;
+            .force-new-page-print {
+              break-before: page !important;
+              page-break-before: always !important;
             }
 
-            thead {
-              display: table-header-group;
-            }
-
-            tfoot {
-              display: table-footer-group;
-            }
-
-            tr,
-            td,
-            th {
-              break-inside: avoid;
-              page-break-inside: avoid;
-            }
-
-            .print-force-new-page {
-              break-before: page;
-              page-break-before: always;
+            .member-card-print,
+            .loan-group-print,
+            .recommendations-print,
+            .donut-breakdown-print,
+            .summary-box-print {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
             }
 
             .responsive-grid-4 {
@@ -836,6 +906,21 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
 
             .responsive-grid-2 {
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+
+            .members-section {
+              break-before: page !important;
+              page-break-before: always !important;
+            }
+
+            .loans-section {
+              break-before: page !important;
+              page-break-before: always !important;
+            }
+
+            .recommendations-section {
+              break-before: auto !important;
+              page-break-before: auto !important;
             }
           }
 
@@ -899,7 +984,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
         </div>
 
         <div style={styles.container}>
-          <section className="print-section responsive-hero" style={styles.heroHeader}>
+          <section className="print-section responsive-hero avoid-break" style={styles.heroHeader}>
             <div className="responsive-hero-meta" style={styles.heroMeta}>
               <div style={styles.heroMetaLabel}>תאריך עדכון</div>
               <div style={styles.heroMetaValue}>{family.lastUpdated || "—"}</div>
@@ -921,10 +1006,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          <section
-            className="print-section responsive-grid-4"
-            style={styles.topGrid}
-          >
+          <section className="print-section responsive-grid-4 avoid-break" style={styles.topGrid}>
             <KpiCard
               styles={styles}
               icon={<GiftIcon />}
@@ -962,10 +1044,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             />
           </section>
 
-          <section
-            className="print-section responsive-grid-3"
-            style={styles.compareGrid}
-          >
+          <section className="print-section responsive-grid-3 avoid-break" style={styles.compareGrid}>
             <ComparisonChartCard
               styles={styles}
               title="צבירה צפויה בגיל פרישה"
@@ -980,7 +1059,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               bars={retirementPensionBars}
             />
 
-            <section style={styles.equityCard}>
+            <section className="avoid-break" style={styles.equityCard}>
               <div style={styles.sectionHeader}>
                 <div style={styles.titleWithIcon}>
                   <span>📊</span>
@@ -1003,11 +1082,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </section>
           </section>
 
-          <section
-            className="print-section responsive-mid-grid"
-            style={styles.midGrid}
-          >
-            <section style={styles.sectionCard}>
+          <section className="print-section responsive-mid-grid avoid-break" style={styles.midGrid}>
+            <section className="avoid-break" style={styles.sectionCard}>
               <div style={styles.sectionHeader}>
                 <div style={styles.titleWithIcon}>
                   <span>🥧</span>
@@ -1029,7 +1105,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </section>
 
             <div style={styles.sideStack}>
-              <section style={styles.sectionCard}>
+              <section className="summary-box-print avoid-break" style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.titleWithIcon}>
                     <span>🧾</span>
@@ -1067,19 +1143,16 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          <section className="print-section" style={styles.sectionCard}>
+          <section className="print-section members-section force-new-page-print" style={styles.sectionCard}>
             <h2 style={styles.h2}>פירוט לפי בני משפחה</h2>
             <div style={styles.explanation}>
               מוצגת תמונת מצב אישית לכל אחד מבני המשפחה, כולל קצבה, סכום חד
               פעמי, ביטוח חיים ואובדן כושר עבודה.
             </div>
 
-            <div
-              className="responsive-members-grid"
-              style={styles.membersGrid}
-            >
+            <div className="responsive-members-grid" style={styles.membersGrid}>
               {members.map((member) => (
-                <div key={member.name} style={styles.memberCard}>
+                <div key={member.name} className="member-card-print avoid-break" style={styles.memberCard}>
                   <div style={styles.memberTop}>
                     <div>
                       <div style={styles.memberName}>{member.name}</div>
@@ -1097,10 +1170,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                     </div>
                   </div>
 
-                  <div
-                    className="responsive-mini-grid"
-                    style={styles.compareMiniGrid}
-                  >
+                  <div className="responsive-mini-grid" style={styles.compareMiniGrid}>
                     <div style={styles.compareMiniCard}>
                       <div style={styles.compareMiniTitle}>
                         קצבה חודשית צפויה
@@ -1158,10 +1228,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                     </div>
                   </div>
 
-                  <div
-                    className="responsive-insurance-grid"
-                    style={styles.insuranceGrid}
-                  >
+                  <div className="responsive-insurance-grid" style={styles.insuranceGrid}>
                     <div style={styles.insuranceCard}>
                       <div style={styles.insuranceLabel}>🛡️ ביטוח חיים</div>
                       <div style={styles.insuranceValue}>
@@ -1186,10 +1253,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </div>
           </section>
 
-          <section
-            className="print-section responsive-loans-grid"
-            style={styles.loansBenefitsGrid}
-          >
+          <section className="print-section loans-section force-new-page-print" style={styles.loansBenefitsGrid}>
             <section style={styles.sectionCard}>
               <div style={styles.sectionHeader}>
                 <div style={styles.titleWithIcon}>
@@ -1216,16 +1280,13 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
 
                     return (
                       <div
-                        className="print-table-block"
+                        className="print-table-block loan-group-print avoid-break"
                         key={personName}
                         style={styles.loanGroup}
                       >
                         <div style={styles.loanPersonName}>{personName}</div>
 
-                        <div
-                          className="responsive-loan-summary"
-                          style={styles.loanSummaryRow}
-                        >
+                        <div className="responsive-loan-summary" style={styles.loanSummaryRow}>
                           <div style={styles.loanSummaryCard}>
                             <div style={styles.loanSummaryLabel}>
                               סך סכום הלוואות
@@ -1245,10 +1306,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                           </div>
                         </div>
 
-                        <div
-                          className="print-table-block"
-                          style={styles.loanTableWrap}
-                        >
+                        <div className="print-table-block avoid-break" style={styles.loanTableWrap}>
                           <table style={styles.loanTable}>
                             <thead>
                               <tr>
@@ -1283,13 +1341,10 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                   })}
 
                   <div
-                    className="print-table-block"
+                    className="print-table-block loan-group-print avoid-break"
                     style={{ ...styles.loanGroup, marginTop: "16px" }}
                   >
-                    <div
-                      className="responsive-loan-summary"
-                      style={styles.loanSummaryRow}
-                    >
+                    <div className="responsive-loan-summary" style={styles.loanSummaryRow}>
                       <div style={styles.loanSummaryCard}>
                         <div style={styles.loanSummaryLabel}>סה"כ הלוואות</div>
                         <div style={styles.loanSummaryValue}>
@@ -1318,7 +1373,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </section>
           </section>
 
-          <section className="print-section" style={styles.sectionCard}>
+          <section className="print-section recommendations-section recommendations-print avoid-break" style={styles.sectionCard}>
             <div style={styles.sectionHeader}>
               <div style={styles.titleWithIcon}>
                 <span>📝</span>
@@ -1624,6 +1679,7 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
 
   return (
     <div
+      className="donut-breakdown-print avoid-break"
       style={{
         display: "grid",
         gridTemplateColumns: "220px 1fr",
@@ -1658,6 +1714,7 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
           segments.map((seg, index) => (
             <div
               key={`${seg.id || seg.name || "group"}-${index}`}
+              className="avoid-break"
               style={{
                 background: "#fff",
                 border: "1px solid #E5D9CB",
