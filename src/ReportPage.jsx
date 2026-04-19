@@ -80,9 +80,11 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     const personName =
       [loan.firstName, loan.familyName].filter(Boolean).join(" ").trim() ||
       "ללא שיוך";
+
     if (!acc[personName]) {
       acc[personName] = [];
     }
+
     acc[personName].push(loan);
     return acc;
   }, {});
@@ -890,8 +892,17 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             .member-card-print,
             .loan-group-print,
             .recommendations-print,
-            .donut-breakdown-print,
             .summary-box-print {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+
+            .donut-section-print {
+              break-inside: auto !important;
+              page-break-inside: auto !important;
+            }
+
+            .donut-breakdown-print {
               break-inside: avoid !important;
               page-break-inside: avoid !important;
             }
@@ -1082,26 +1093,39 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </section>
           </section>
 
-          <section className="print-section responsive-mid-grid avoid-break" style={styles.midGrid}>
-            <section className="avoid-break" style={styles.sectionCard}>
-              <div style={styles.sectionHeader}>
-                <div style={styles.titleWithIcon}>
-                  <span>🥧</span>
-                  <h2 style={styles.h2}>חלוקה לפי אפיקים ראשיים</h2>
+          <section className="print-section responsive-mid-grid" style={styles.midGrid}>
+            <section style={styles.sectionCard}>
+              <div className="donut-section-print">
+                <div style={styles.sectionHeader}>
+                  <div style={styles.titleWithIcon}>
+                    <span>🥧</span>
+                    <h2 style={styles.h2}>חלוקה לפי אפיקים ראשיים</h2>
+                  </div>
                 </div>
-              </div>
 
-              <div style={styles.explanation}>
-                התרשים מציג חלוקה משוקללת לפי צבירה של 10 הקטגוריות הראשיות
-                מתוך MainGroups בכלל המוצרים של שני הלקוחות.
-              </div>
+                <div style={styles.explanation}>
+                  התרשים מציג חלוקה משוקללת לפי צבירה של 10 הקטגוריות הראשיות
+                  מתוך MainGroups בכלל המוצרים של שני הלקוחות.
+                </div>
 
-              <DonutBreakdownCard
-                items={mainGroupAllocation}
-                styles={styles}
-                formatCurrency={formatCurrency}
-                colors={[navy, blue, cyan, purple, pink, gold, "#9FD0E6", "#8FB996", "#C08497", "#7B8CBF"]}
-              />
+                <DonutBreakdownCard
+                  items={mainGroupAllocation}
+                  styles={styles}
+                  formatCurrency={formatCurrency}
+                  colors={[
+                    navy,
+                    blue,
+                    cyan,
+                    purple,
+                    pink,
+                    gold,
+                    "#9FD0E6",
+                    "#8FB996",
+                    "#C08497",
+                    "#7B8CBF",
+                  ]}
+                />
+              </div>
             </section>
 
             <div style={styles.sideStack}>
@@ -1172,14 +1196,10 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
 
                   <div className="responsive-mini-grid" style={styles.compareMiniGrid}>
                     <div style={styles.compareMiniCard}>
-                      <div style={styles.compareMiniTitle}>
-                        קצבה חודשית צפויה
-                      </div>
+                      <div style={styles.compareMiniTitle}>קצבה חודשית צפויה</div>
                       <div style={styles.compareMiniInner}>
                         <div style={styles.compareMiniSide}>
-                          <div style={styles.compareMiniSideLabel}>
-                            עם הפקדות
-                          </div>
+                          <div style={styles.compareMiniSideLabel}>עם הפקדות</div>
                           <div style={styles.compareMiniSideValue}>
                             {formatCurrency(member.monthlyPensionWithDeposits)}
                           </div>
@@ -1188,27 +1208,19 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                         <div style={styles.dividerLine} />
 
                         <div style={styles.compareMiniSide}>
-                          <div style={styles.compareMiniSideLabel}>
-                            ללא הפקדות
-                          </div>
+                          <div style={styles.compareMiniSideLabel}>ללא הפקדות</div>
                           <div style={styles.compareMiniSideValue}>
-                            {formatCurrency(
-                              member.monthlyPensionWithoutDeposits
-                            )}
+                            {formatCurrency(member.monthlyPensionWithoutDeposits)}
                           </div>
                         </div>
                       </div>
                     </div>
 
                     <div style={styles.compareMiniCard}>
-                      <div style={styles.compareMiniTitle}>
-                        סכום חד הוני לפרישה
-                      </div>
+                      <div style={styles.compareMiniTitle}>סכום חד הוני לפרישה</div>
                       <div style={styles.compareMiniInner}>
                         <div style={styles.compareMiniSide}>
-                          <div style={styles.compareMiniSideLabel}>
-                            עם הפקדות
-                          </div>
+                          <div style={styles.compareMiniSideLabel}>עם הפקדות</div>
                           <div style={styles.compareMiniSideValue}>
                             {formatCurrency(member.lumpSumWithDeposits)}
                           </div>
@@ -1217,9 +1229,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                         <div style={styles.dividerLine} />
 
                         <div style={styles.compareMiniSide}>
-                          <div style={styles.compareMiniSideLabel}>
-                            ללא הפקדות
-                          </div>
+                          <div style={styles.compareMiniSideLabel}>ללא הפקדות</div>
                           <div style={styles.compareMiniSideValue}>
                             {formatCurrency(member.lumpSumWithoutDeposits)}
                           </div>
@@ -1239,8 +1249,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                     <div style={styles.insuranceCard}>
                       <div style={styles.insuranceLabel}>🧍 אובדן כושר עבודה</div>
                       <div style={styles.insuranceValue}>
-                        {formatCurrency(member.disabilityValue)} (
-                        {member.disabilityPercent}%)
+                        {formatCurrency(member.disabilityValue)} ({member.disabilityPercent}%)
                       </div>
                     </div>
                   </div>
@@ -1288,18 +1297,14 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
 
                         <div className="responsive-loan-summary" style={styles.loanSummaryRow}>
                           <div style={styles.loanSummaryCard}>
-                            <div style={styles.loanSummaryLabel}>
-                              סך סכום הלוואות
-                            </div>
+                            <div style={styles.loanSummaryLabel}>סך סכום הלוואות</div>
                             <div style={styles.loanSummaryValue}>
                               {formatCurrency(totalAmount)}
                             </div>
                           </div>
 
                           <div style={styles.loanSummaryCard}>
-                            <div style={styles.loanSummaryLabel}>
-                              יתרת הלוואות
-                            </div>
+                            <div style={styles.loanSummaryLabel}>יתרת הלוואות</div>
                             <div style={styles.loanSummaryValue}>
                               {formatCurrency(totalBalance)}
                             </div>
@@ -1319,18 +1324,10 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                             <tbody>
                               {personLoans.map((loan) => (
                                 <tr key={loan.id}>
-                                  <td style={styles.loanTd}>
-                                    {formatCurrency(loan.amount)}
-                                  </td>
-                                  <td style={styles.loanTd}>
-                                    {loan.repaymentFrequency || "—"}
-                                  </td>
-                                  <td style={styles.loanTd}>
-                                    {formatCurrency(loan.balance)}
-                                  </td>
-                                  <td style={styles.loanTd}>
-                                    {formatDate(loan.endDate)}
-                                  </td>
+                                  <td style={styles.loanTd}>{formatCurrency(loan.amount)}</td>
+                                  <td style={styles.loanTd}>{loan.repaymentFrequency || "—"}</td>
+                                  <td style={styles.loanTd}>{formatCurrency(loan.balance)}</td>
+                                  <td style={styles.loanTd}>{formatDate(loan.endDate)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1558,9 +1555,7 @@ function DonutSummaryCard({
 
   const gradient =
     segments.length > 0
-      ? segments
-          .map((seg) => `${seg.color} ${seg.start}% ${seg.end}%`)
-          .join(", ")
+      ? segments.map((seg) => `${seg.color} ${seg.start}% ${seg.end}%`).join(", ")
       : "#D7DEE7 0% 100%";
 
   return (
@@ -1679,15 +1674,21 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
 
   return (
     <div
-      className="donut-breakdown-print avoid-break"
+      className="donut-breakdown-print"
       style={{
         display: "grid",
         gridTemplateColumns: "220px 1fr",
         gap: "18px",
-        alignItems: "center",
+        alignItems: "start",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-start",
+        }}
+      >
         <div
           style={{
             width: "180px",
@@ -1695,6 +1696,7 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
             borderRadius: "50%",
             background: `conic-gradient(${gradient})`,
             position: "relative",
+            flexShrink: 0,
           }}
         >
           <div
@@ -1714,12 +1716,13 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
           segments.map((seg, index) => (
             <div
               key={`${seg.id || seg.name || "group"}-${index}`}
-              className="avoid-break"
               style={{
                 background: "#fff",
                 border: "1px solid #E5D9CB",
                 borderRadius: "14px",
                 padding: "12px",
+                breakInside: "avoid",
+                pageBreakInside: "avoid",
               }}
             >
               <div
