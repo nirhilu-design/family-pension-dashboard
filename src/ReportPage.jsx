@@ -17,17 +17,11 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     members = [],
     products = [],
     managers = [],
-    tracks = [],
+    mainGroupAllocation = [],
     loans = { hasData: false, details: [] },
-    beneficiaries = {
-      hasData: false,
-      coverageAmount: 0,
-      summary: "לא התקבל מידע",
-    },
     weightedEquityExposure = 0,
     totalProducts = 0,
     totalManagers = 0,
-    totalTracks = 0,
   } = safeReportData;
 
   const handleExportPdf = () => {
@@ -462,48 +456,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       lineHeight: 1.7,
       marginBottom: "16px",
     },
-    tracksList: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "12px",
-    },
-    trackItem: {
-      border: `1px solid ${divider}`,
-      background: surfaceAlt,
-      borderRadius: "14px",
-      padding: "14px",
-    },
-    trackTop: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: "10px",
-      marginBottom: "8px",
-      flexWrap: "wrap",
-    },
-    trackName: {
-      fontWeight: 700,
-      color: navy,
-      fontSize: "14px",
-    },
-    trackMeta: {
-      fontSize: "12px",
-      color: textSoft,
-      marginTop: "3px",
-    },
-    trackProgressWrap: {
-      width: "100%",
-      height: "10px",
-      background: "#E6ECF5",
-      borderRadius: "999px",
-      overflow: "hidden",
-      marginTop: "10px",
-    },
-    trackProgress: {
-      height: "100%",
-      background: `linear-gradient(90deg, ${purple}, ${blue})`,
-      borderRadius: "999px",
-    },
     midGrid: {
       display: "grid",
       gridTemplateColumns: "1.2fr 1fr",
@@ -514,31 +466,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "flex",
       flexDirection: "column",
       gap: "18px",
-    },
-    beneficiariesCard: {
-      background: surface,
-      border: `1px solid ${border}`,
-      borderRadius: "18px",
-      padding: "20px",
-      boxShadow: "0 2px 10px rgba(16,42,67,0.05)",
-      boxSizing: "border-box",
-    },
-    simpleInfoBox: {
-      background: surfaceAlt,
-      border: `1px solid ${divider}`,
-      borderRadius: "14px",
-      padding: "16px",
-    },
-    infoLabel: {
-      fontSize: "12px",
-      color: textSoft,
-      marginBottom: "8px",
-    },
-    infoValue: {
-      fontSize: "18px",
-      fontWeight: 700,
-      color: navy,
-      lineHeight: 1.5,
     },
     summaryStatsGrid: {
       display: "grid",
@@ -561,6 +488,23 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       fontSize: "20px",
       fontWeight: 700,
       color: navy,
+    },
+    simpleInfoBox: {
+      background: surfaceAlt,
+      border: `1px solid ${divider}`,
+      borderRadius: "14px",
+      padding: "16px",
+    },
+    infoLabel: {
+      fontSize: "12px",
+      color: textSoft,
+      marginBottom: "8px",
+    },
+    infoValue: {
+      fontSize: "18px",
+      fontWeight: 700,
+      color: navy,
+      lineHeight: 1.5,
     },
     membersGrid: {
       display: "grid",
@@ -1066,83 +1010,26 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             <section style={styles.sectionCard}>
               <div style={styles.sectionHeader}>
                 <div style={styles.titleWithIcon}>
-                  <span>📈</span>
-                  <h2 style={styles.h2}>פירוט מסלולי השקעה</h2>
+                  <span>🥧</span>
+                  <h2 style={styles.h2}>חלוקה לפי אפיקים ראשיים</h2>
                 </div>
               </div>
 
               <div style={styles.explanation}>
-                מוצגת חלוקה לפי מסלולים / אפיקים בדומה לדוח הקיים, בעיצוב
-                ברור יותר שמדגיש את גודל המסלול ואת מקומו היחסי בתיק.
+                התרשים מציג חלוקה משוקללת לפי צבירה של 10 הקטגוריות הראשיות
+                מתוך MainGroups בכלל המוצרים של שני הלקוחות.
               </div>
 
-              <div style={styles.tracksList}>
-                {tracks.map((track) => {
-                  const portfolioWeight =
-                    totalTracks > 0
-                      ? Math.round((track.value / totalTracks) * 100)
-                      : 0;
-
-                  return (
-                    <div key={track.name} style={styles.trackItem}>
-                      <div style={styles.trackTop}>
-                        <div>
-                          <div style={styles.trackName}>{track.name}</div>
-                          <div style={styles.trackMeta}>
-                            {formatCurrency(track.value)}
-                          </div>
-                        </div>
-
-                        <div style={{ textAlign: "left" }}>
-                          <div style={styles.trackName}>
-                            {portfolioWeight}% מהתיק
-                          </div>
-                          <div style={styles.trackMeta}>
-                            {track.equityPercent}% מניות במסלול
-                          </div>
-                        </div>
-                      </div>
-
-                      <div style={styles.trackProgressWrap}>
-                        <div
-                          style={{
-                            ...styles.trackProgress,
-                            width: `${portfolioWeight}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {!tracks.length ? (
-                  <div style={styles.emptyState}>
-                    לא התקבלו מסלולי השקעה להצגה.
-                  </div>
-                ) : null}
-              </div>
+              <DonutBreakdownCard
+                items={mainGroupAllocation}
+                styles={styles}
+                formatCurrency={formatCurrency}
+                colors={[navy, blue, cyan, purple, pink, gold, "#9FD0E6", "#8FB996", "#C08497", "#7B8CBF"]}
+              />
             </section>
 
             <div style={styles.sideStack}>
-              <section style={styles.beneficiariesCard}>
-                <div style={styles.sectionHeader}>
-                  <div style={styles.titleWithIcon}>
-                    <span>👨‍👩‍👧</span>
-                    <h2 style={styles.h2}>מוטבים</h2>
-                  </div>
-                </div>
-
-                <div style={styles.explanation}>
-                  נכון לעכשיו מוצג סטטוס כללי כפי שהתקבל בנתונים, ללא שינוי בלוגיקה.
-                </div>
-
-                <div style={styles.simpleInfoBox}>
-                  <div style={styles.infoLabel}>סטטוס כללי</div>
-                  <div style={styles.infoValue}>{beneficiaries.summary}</div>
-                </div>
-              </section>
-
-              <section style={styles.beneficiariesCard}>
+              <section style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.titleWithIcon}>
                     <span>🧾</span>
@@ -1162,13 +1049,13 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                   </div>
 
                   <div style={styles.statCard}>
-                    <div style={styles.statLabel}>מסלולי השקעה</div>
-                    <div style={styles.statValue}>{tracks.length}</div>
+                    <div style={styles.statLabel}>בני משפחה</div>
+                    <div style={styles.statValue}>{members.length}</div>
                   </div>
 
                   <div style={styles.statCard}>
-                    <div style={styles.statLabel}>בני משפחה</div>
-                    <div style={styles.statValue}>{members.length}</div>
+                    <div style={styles.statLabel}>אפיקים ראשיים</div>
+                    <div style={styles.statValue}>{mainGroupAllocation.length}</div>
                   </div>
                 </div>
 
@@ -1707,6 +1594,133 @@ function DonutSummaryCard({
         </div>
       </div>
     </section>
+  );
+}
+
+function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const total = safeItems.reduce((sum, item) => sum + (item.value || 0), 0) || 1;
+
+  let current = 0;
+  const segments = safeItems.map((item, index) => {
+    const percent = ((item.value || 0) / total) * 100;
+    const start = current;
+    const end = current + percent;
+    current = end;
+
+    return {
+      ...item,
+      percent,
+      color: colors[index % colors.length],
+      start,
+      end,
+    };
+  });
+
+  const gradient =
+    segments.length > 0
+      ? segments.map((seg) => `${seg.color} ${seg.start}% ${seg.end}%`).join(", ")
+      : "#D7DEE7 0% 100%";
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "220px 1fr",
+        gap: "18px",
+        alignItems: "center",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <div
+          style={{
+            width: "180px",
+            height: "180px",
+            borderRadius: "50%",
+            background: `conic-gradient(${gradient})`,
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: "32px",
+              background: "#fff",
+              borderRadius: "50%",
+              border: "1px solid #E5D9CB",
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {segments.length ? (
+          segments.map((seg, index) => (
+            <div
+              key={`${seg.id || seg.name || "group"}-${index}`}
+              style={{
+                background: "#fff",
+                border: "1px solid #E5D9CB",
+                borderRadius: "14px",
+                padding: "12px",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "12px 1fr auto",
+                  gap: "10px",
+                  alignItems: "center",
+                }}
+              >
+                <span
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "50%",
+                    background: seg.color,
+                    display: "inline-block",
+                  }}
+                />
+                <div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#00215D",
+                      fontSize: "14px",
+                    }}
+                  >
+                    {seg.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#627D98",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {formatCurrency(seg.value)}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "#00215D",
+                    fontSize: "14px",
+                  }}
+                >
+                  {seg.percent.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div style={{ color: "#627D98", fontSize: "13px" }}>
+            אין נתוני אפיקים להצגה
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

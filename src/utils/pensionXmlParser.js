@@ -165,9 +165,6 @@ function parseInvestPlans(policyNode) {
   });
 }
 
-// =========================
-// הוספת חלק ההלוואות
-// =========================
 function parseLoans(policyNode) {
   const loansRoot = policyNode.querySelector("Loans");
   if (!loansRoot) return [];
@@ -274,8 +271,6 @@ function parsePolicy(policyNode) {
         getText(save || policyNode, "ItraZvuraCompensetion")
       ),
       totalAccumulated: parseNumber(getText(save || policyNode, "TotalItraZvura")),
-
-      // חשוב: אלו השדות האמיתיים כפי שהגדרת
       retireCurrBalance: parseNumber(
         getText(save || policyNode, "RetireCurrBalance")
       ),
@@ -288,7 +283,6 @@ function parsePolicy(policyNode) {
       pensionRetire: parseNumber(
         getText(save || policyNode, "PensionRetire")
       ),
-
       projectedRetirementBalance: parseNumber(
         getText(save || policyNode, "RetireCurrBalance")
       ),
@@ -315,8 +309,6 @@ function parsePolicy(policyNode) {
     },
 
     investPlans: parseInvestPlans(policyNode),
-
-    // הוספה חדשה
     loans: parseLoans(policyNode),
   };
 }
@@ -350,8 +342,6 @@ function parseSummary(doc) {
     },
     save: {
       totalAccumulated: parseNumber(getText(brutoSave || doc, "TotalItraZvura")),
-
-      // מיפוי ישיר של שדות summary
       withDepositsLumpSumField: parseNumber(
         getText(brutoSave || doc, "TotalPidions")
       ),
@@ -364,7 +354,6 @@ function parseSummary(doc) {
       withoutDepositsMonthlyPensionField: parseNumber(
         getText(netoSave || brutoSave || doc, "RetireCurrBalancePension")
       ),
-
       projectedRetirementBalance: parseNumber(
         getText(brutoSave || doc, "RetireCurrBalance")
       ),
@@ -552,6 +541,52 @@ function buildTracks(flatPolicies) {
     .sort((a, b) => b.value - a.value);
 }
 
+function buildMainGroupAllocation(flatPolicies) {
+  const grouped = new Map();
+
+  flatPolicies.forEach((policy) => {
+    const policyValue = Number(policy?.savings?.totalAccumulated || 0);
+    if (policyValue <= 0) return;
+
+    const plans = Array.isArray(policy.investPlans) ? policy.investPlans : [];
+    if (!plans.length) return;
+
+    const divisor = plans.length || 1;
+    const planWeight = policyValue / divisor;
+
+    plans.forEach((plan) => {
+      const mainGroups = Array.isArray(plan.mainGroups) ? plan.mainGroups : [];
+      mainGroups.forEach((group) => {
+        const rate = Number(group?.rate || 0);
+        if (!group?.name || rate <= 0) return;
+
+        const weightedValue = planWeight * (rate / 100);
+        const key = `${group.id || ""}|${group.name}`;
+
+        const current = grouped.get(key) || {
+          id: group.id || "",
+          name: group.name,
+          value: 0,
+        };
+
+        current.value += weightedValue;
+        grouped.set(key, current);
+      });
+    });
+  });
+
+  const items = Array.from(grouped.values())
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+
+  return items.map((item) => ({
+    ...item,
+    percent: total > 0 ? (item.value / total) * 100 : 0,
+  }));
+}
+
 export function buildLegacyReportData(parsedFiles) {
   const files = Array.isArray(parsedFiles) ? parsedFiles : [];
 
@@ -582,27 +617,22 @@ export function buildLegacyReportData(parsedFiles) {
     files.map((f) => f.summary?.budget?.sumCost)
   );
 
-  // קצבה עם הפקדות - שדה PensionRetire
   const monthlyPensionWithDeposits = sumNullable(
     files.map((f) => f.summary?.save?.withDepositsMonthlyPensionField)
   );
 
-  // קצבה ללא הפקדות - שדה RetireCurrBalancePension
   const monthlyPensionWithoutDeposits = sumNullable(
     files.map((f) => f.summary?.save?.withoutDepositsMonthlyPensionField)
   );
 
-  // חד הוני ללא הפקדות - בכל מוצר ללא HCoff, לקחת RetireCurrBalance
   const projectedLumpSumWithoutDeposits = sumNullable(
     noCoeffPolicies.map((p) => p.savings?.retireCurrBalance)
   );
 
-  // חד הוני עם הפקדות - באותה לוגיקה, אבל לקחת TotalPidions
   const projectedLumpSumWithDeposits = sumNullable(
     noCoeffPolicies.map((p) => p.savings?.totalPidions)
   );
 
-  // סכום ביטוח - צבירה נוכחית של כל מוצר ללא HCoff + ביטוח חיים
   const totalInsurance = sumNullable(
     insurancePolicies.map((p) => p.savings?.totalAccumulated)
   );
@@ -663,21 +693,16 @@ export function buildLegacyReportData(parsedFiles) {
         totalAssets > 0 ? Math.round((assets / totalAssets) * 100) : 0,
       monthlyDeposits: monthlyDepositsMember,
       assets,
-
       monthlyPensionWithDeposits:
         file.summary?.save?.withDepositsMonthlyPensionField || 0,
-
       monthlyPensionWithoutDeposits:
         file.summary?.save?.withoutDepositsMonthlyPensionField || 0,
-
       lumpSumWithDeposits: sumNullable(
         memberNoCoeff.map((p) => p.savings?.totalPidions)
       ),
-
       lumpSumWithoutDeposits: sumNullable(
         memberNoCoeff.map((p) => p.savings?.retireCurrBalance)
       ),
-
       deathCoverage,
       disabilityValue,
       disabilityPercent,
@@ -697,6 +722,8 @@ export function buildLegacyReportData(parsedFiles) {
   );
 
   const tracks = buildTracks(flatPolicies);
+  const mainGroupAllocation = buildMainGroupAllocation(flatPolicies);
+
   const totalProducts = sumNullable(products.map((p) => p.value));
   const totalManagers = sumNullable(managers.map((p) => p.value));
   const totalTracks = sumNullable(tracks.map((t) => t.value));
@@ -712,9 +739,6 @@ export function buildLegacyReportData(parsedFiles) {
         )
       : 0;
 
-  // =========================
-  // הוספת איסוף הלוואות
-  // =========================
   const loanDetails = flatPolicies.flatMap((policy) =>
     (policy.loans || []).map((loan, index) => ({
       id:
@@ -774,6 +798,7 @@ export function buildLegacyReportData(parsedFiles) {
     products,
     managers,
     tracks,
+    mainGroupAllocation,
     loans: {
       hasData: uniqueLoanDetails.length > 0,
       details: uniqueLoanDetails,
