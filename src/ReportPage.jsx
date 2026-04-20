@@ -18,6 +18,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     products = [],
     managers = [],
     mainGroupAllocation = [],
+    foreignExposureAllocation = [],
+    weightedForeignExposure = 0,
     loans = { hasData: false, details: [] },
     weightedEquityExposure = 0,
     totalProducts = 0,
@@ -480,7 +482,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       display: "grid",
       gridTemplateColumns: "1.2fr 1fr",
       gap: "18px",
-      alignItems: "stretch",
+      alignItems: "start",
     },
     sideStack: {
       display: "flex",
@@ -832,13 +834,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             page-break-inside: avoid;
           }
 
-          .members-section,
-          .loans-section,
-          .recommendations-section {
-            break-before: auto;
-            page-break-before: auto;
-          }
-
           table,
           thead,
           tbody,
@@ -892,17 +887,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             .member-card-print,
             .loan-group-print,
             .recommendations-print,
-            .summary-box-print {
-              break-inside: avoid !important;
-              page-break-inside: avoid !important;
-            }
-
-            .donut-section-print {
-              break-inside: auto !important;
-              page-break-inside: auto !important;
-            }
-
-            .donut-breakdown-print {
+            .summary-box-print,
+            .foreign-exposure-print {
               break-inside: avoid !important;
               page-break-inside: avoid !important;
             }
@@ -919,6 +905,22 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             }
 
+            .responsive-mid-grid {
+              display: block !important;
+            }
+
+            .donut-section-print {
+              display: block !important;
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+              margin-bottom: 18px !important;
+            }
+
+            .donut-breakdown-print {
+              break-inside: avoid !important;
+              page-break-inside: avoid !important;
+            }
+
             .members-section {
               break-before: page !important;
               page-break-before: always !important;
@@ -927,11 +929,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             .loans-section {
               break-before: page !important;
               page-break-before: always !important;
-            }
-
-            .recommendations-section {
-              break-before: auto !important;
-              page-break-before: auto !important;
             }
           }
 
@@ -1129,6 +1126,30 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </section>
 
             <div style={styles.sideStack}>
+              <section className="foreign-exposure-print avoid-break" style={styles.sectionCard}>
+                <div style={styles.sectionHeader}>
+                  <div style={styles.titleWithIcon}>
+                    <span>🌍</span>
+                    <h2 style={styles.h2}>חשיפה לחו"ל</h2>
+                  </div>
+                </div>
+
+                <div style={styles.explanation}>
+                  התרשים מציג חלוקה משוקללת בין חו"ל לישראל על בסיס נתוני
+                  Exposures בכלל הנכסים.
+                </div>
+
+                <PercentDonutCard
+                  title="חשיפה לחו\"ל"
+                  subtitle={`חשיפה משוקללת לחו"ל: ${formatPercentLabel(
+                    weightedForeignExposure
+                  )}`}
+                  items={foreignExposureAllocation}
+                  colors={[purple, gold]}
+                  styles={styles}
+                />
+              </section>
+
               <section className="summary-box-print avoid-break" style={styles.sectionCard}>
                 <div style={styles.sectionHeader}>
                   <div style={styles.titleWithIcon}>
@@ -1781,6 +1802,111 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
         )}
       </div>
     </div>
+  );
+}
+
+function PercentDonutCard({ title, subtitle, items, colors, styles }) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const total = safeItems.reduce((sum, item) => sum + (item.value || 0), 0) || 100;
+
+  let current = 0;
+  const segments = safeItems.map((item, index) => {
+    const percent = ((item.value || 0) / total) * 100;
+    const start = current;
+    const end = current + percent;
+    current = end;
+
+    return {
+      ...item,
+      percent,
+      color: colors[index % colors.length],
+      start,
+      end,
+    };
+  });
+
+  const gradient =
+    segments.length > 0
+      ? segments.map((seg) => `${seg.color} ${seg.start}% ${seg.end}%`).join(", ")
+      : "#D7DEE7 0% 100%";
+
+  return (
+    <section style={styles.donutCard}>
+      <h3 style={styles.donutTitle}>{title}</h3>
+      <div style={{ ...styles.smallText, marginTop: "6px" }}>{subtitle}</div>
+
+      <div style={styles.donutLayout}>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <div
+            style={{
+              width: "96px",
+              height: "96px",
+              borderRadius: "50%",
+              background: `conic-gradient(${gradient})`,
+              position: "relative",
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                inset: "15px",
+                background: "#fff",
+                borderRadius: "50%",
+                border: "1px solid #E5D9CB",
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {segments.length ? (
+            segments.map((seg, index) => (
+              <div
+                key={`${seg.name || "item"}-${index}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "10px 1fr auto",
+                  gap: "8px",
+                  alignItems: "center",
+                  fontSize: "12px",
+                }}
+              >
+                <span
+                  style={{
+                    width: "10px",
+                    height: "10px",
+                    borderRadius: "50%",
+                    background: seg.color,
+                    display: "inline-block",
+                  }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      color: "#102A43",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {seg.name}
+                  </div>
+                </div>
+                <div style={{ color: "#102A43", fontWeight: 700 }}>
+                  {seg.percent.toFixed(1)}%
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={{ ...styles.smallText, marginTop: "4px" }}>
+              אין נתונים להצגה
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

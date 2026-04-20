@@ -67,7 +67,7 @@ function formatDateForReport(date = new Date()) {
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
-  return ` ${day}/${month}/${year}`;
+  return `${day}/${month}/${year}`;
 }
 
 function pickFirstText(sectionRoots, tag) {
@@ -139,9 +139,13 @@ function parseInvestPlans(policyNode) {
     );
 
     const equityExposure =
-      exposures.find((p) => (p.name || "").includes("מניות"))?.rate ??
+      exposures.find((p) => (p.id === "4751") || (p.name || "").includes("מניות"))?.rate ??
       mainGroups.find((p) => (p.name || "").includes("מניות"))?.rate ??
       inferEquityFromTrackName(getText(plan, "PlanNameAfik"));
+
+    const foreignExposure =
+      exposures.find((p) => (p.id === "4752") || (p.name || "").includes('חו"ל'))?.rate ??
+      0;
 
     return {
       mofid: getText(plan, "MOFID"),
@@ -161,6 +165,7 @@ function parseInvestPlans(policyNode) {
       mainGroups,
       exposures,
       equityExposure,
+      foreignExposure,
     };
   });
 }
@@ -587,6 +592,53 @@ function buildMainGroupAllocation(flatPolicies) {
   }));
 }
 
+function buildForeignExposureAllocation(flatPolicies) {
+  let totalTrackedValue = 0;
+  let abroadWeightedValue = 0;
+
+  flatPolicies.forEach((policy) => {
+    const policyValue = Number(policy?.savings?.totalAccumulated || 0);
+    if (policyValue <= 0) return;
+
+    const plans = Array.isArray(policy.investPlans) ? policy.investPlans : [];
+
+    if (!plans.length) {
+      totalTrackedValue += policyValue;
+      return;
+    }
+
+    const divisor = plans.length || 1;
+    const planWeight = policyValue / divisor;
+
+    plans.forEach((plan) => {
+      const rate = Math.max(0, Math.min(100, Number(plan?.foreignExposure || 0)));
+      totalTrackedValue += planWeight;
+      abroadWeightedValue += planWeight * (rate / 100);
+    });
+  });
+
+  if (totalTrackedValue <= 0) {
+    return {
+      weightedForeignExposure: 0,
+      items: [
+        { name: 'חו"ל', value: 0, percent: 0 },
+        { name: "ישראל", value: 100, percent: 100 },
+      ],
+    };
+  }
+
+  const abroadPercent = (abroadWeightedValue / totalTrackedValue) * 100;
+  const israelPercent = Math.max(0, 100 - abroadPercent);
+
+  return {
+    weightedForeignExposure: abroadPercent,
+    items: [
+      { name: 'חו"ל', value: abroadPercent, percent: abroadPercent },
+      { name: "ישראל", value: israelPercent, percent: israelPercent },
+    ],
+  };
+}
+
 export function buildLegacyReportData(parsedFiles) {
   const files = Array.isArray(parsedFiles) ? parsedFiles : [];
 
@@ -723,6 +775,7 @@ export function buildLegacyReportData(parsedFiles) {
 
   const tracks = buildTracks(flatPolicies);
   const mainGroupAllocation = buildMainGroupAllocation(flatPolicies);
+  const foreignExposureResult = buildForeignExposureAllocation(flatPolicies);
 
   const totalProducts = sumNullable(products.map((p) => p.value));
   const totalManagers = sumNullable(managers.map((p) => p.value));
@@ -799,6 +852,8 @@ export function buildLegacyReportData(parsedFiles) {
     managers,
     tracks,
     mainGroupAllocation,
+    foreignExposureAllocation: foreignExposureResult.items,
+    weightedForeignExposure: foreignExposureResult.weightedForeignExposure,
     loans: {
       hasData: uniqueLoanDetails.length > 0,
       details: uniqueLoanDetails,
