@@ -33,7 +33,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
   const formatCurrency = (value) =>
     `₪${Number(value || 0).toLocaleString("en-US")}`;
 
-  const formatPercentLabel = (value) => `${Math.round(Number(value || 0))}%`;
+  const formatPercentLabel = (value) =>
+    `${Math.round(Number(value || 0))}%`;
 
   const formatDate = (value) => {
     if (!value) return "—";
@@ -1140,7 +1141,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
                 </div>
 
                 <PercentDonutCard
-                  title="חשיפה לחו\"ל"
+                  title={'חשיפה לחו"ל'}
                   subtitle={`חשיפה משוקללת לחו"ל: ${formatPercentLabel(
                     weightedForeignExposure
                   )}`}
