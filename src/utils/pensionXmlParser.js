@@ -139,13 +139,16 @@ function parseInvestPlans(policyNode) {
     );
 
     const equityExposure =
-      exposures.find((p) => (p.id === "4751") || (p.name || "").includes("מניות"))?.rate ??
+      exposures.find(
+        (p) => p.id === "4751" || (p.name || "").includes("מניות")
+      )?.rate ??
       mainGroups.find((p) => (p.name || "").includes("מניות"))?.rate ??
       inferEquityFromTrackName(getText(plan, "PlanNameAfik"));
 
     const foreignExposure =
-      exposures.find((p) => (p.id === "4752") || (p.name || "").includes('חו"ל'))?.rate ??
-      0;
+      exposures.find(
+        (p) => p.id === "4752" || (p.name || "").includes('חו"ל')
+      )?.rate ?? 0;
 
     return {
       mofid: getText(plan, "MOFID"),
@@ -206,13 +209,17 @@ function parsePolicy(policyNode) {
   const productType = pickFirstText(sectionRoots, "ProposeName2");
   const planName = pickFirstText(sectionRoots, "PlanName");
 
+  // חשוב:
+  // שם גוף מנהל צריך להיות מבוסס קודם על שדות מנהל אמיתיים,
+  // ואם הם לא קיימים - לקחת את PlanName
+  // ולא ליפול ל-ProductType, כי זה יוצר בלבול בין מוצר לגוף מנהל.
   const managerName =
     pickFirstText(sectionRoots, "CompanyName") ||
     pickFirstText(sectionRoots, "YeshutName") ||
     pickFirstText(sectionRoots, "ProducerName") ||
     pickFirstText(sectionRoots, "MenahelName") ||
     pickFirstText(sectionRoots, "FundName") ||
-    productType ||
+    planName ||
     "לא ידוע";
 
   return {
@@ -794,16 +801,15 @@ export function buildLegacyReportData(parsedFiles) {
 
   const loanDetails = flatPolicies.flatMap((policy) =>
     (policy.loans || []).map((loan, index) => ({
-      id:
-        [
-          policy.ownerId || "",
-          policy.policyNo || "",
-          policy.rowNum || "",
-          index,
-          loan.amount ?? "",
-          loan.balance ?? "",
-          loan.endDate || "",
-        ].join("|"),
+      id: [
+        policy.ownerId || "",
+        policy.policyNo || "",
+        policy.rowNum || "",
+        index,
+        loan.amount ?? "",
+        loan.balance ?? "",
+        loan.endDate || "",
+      ].join("|"),
       firstName: policy.ownerFirstName || "",
       familyName: policy.ownerLastName || "",
       amount: loan.amount ?? 0,
