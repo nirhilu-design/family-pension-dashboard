@@ -22,8 +22,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     weightedForeignExposure = 0,
     loans = { hasData: false, details: [] },
     weightedEquityExposure = 0,
-    totalProducts = 0,
-    totalManagers = 0,
   } = safeReportData;
 
   const handleExportPdf = () => {
@@ -84,10 +82,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       [loan.firstName, loan.familyName].filter(Boolean).join(" ").trim() ||
       "ללא שיוך";
 
-    if (!acc[personName]) {
-      acc[personName] = [];
-    }
-
+    if (!acc[personName]) acc[personName] = [];
     acc[personName].push(loan);
     return acc;
   }, {});
@@ -177,8 +172,10 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
   const pink = "#F07C8A";
   const gold = "#F0B43C";
   const navy = "#00215D";
-  const mutedBar = "#B7C4D8";
+  const mutedBar = "#C7D1E2";
   const softBlue = "#EAF1FB";
+  const buttonBorder = "#D9DDE8";
+  const actionBlue = "#4F66E8";
 
   const styles = {
     page: {
@@ -186,9 +183,11 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       background: pageBg,
       padding: "24px",
       direction: "rtl",
-      fontFamily: "Arial, sans-serif",
+      fontFamily: 'Calibri, "Arial", sans-serif',
       color: text,
       boxSizing: "border-box",
+      fontSize: "12px",
+      lineHeight: 1.6,
     },
     actionsBar: {
       maxWidth: "1280px",
@@ -248,13 +247,14 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       textAlign: "center",
     },
     heroEyebrow: {
-      fontSize: "13px",
+      fontSize: "12px",
       color: "rgba(255,255,255,0.78)",
       marginBottom: "8px",
+      fontWeight: 700,
     },
     heroTitle: {
       margin: 0,
-      fontSize: "32px",
+      fontSize: "30px",
       fontWeight: 700,
       lineHeight: 1.2,
       color: "#fff",
@@ -262,7 +262,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     heroSubtitle: {
       margin: "12px auto 0",
       maxWidth: "760px",
-      fontSize: "14px",
+      fontSize: "12px",
       lineHeight: 1.8,
       color: "rgba(255,255,255,0.9)",
     },
@@ -284,27 +284,29 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       minHeight: "188px",
       display: "flex",
       flexDirection: "column",
-      justifyContent: "space-between",
+      justifyContent: "center",
       boxShadow: "0 2px 10px rgba(16,42,67,0.05)",
       boxSizing: "border-box",
       breakInside: "avoid",
       pageBreakInside: "avoid",
     },
     kpiIconWrap: {
-      width: "54px",
-      height: "54px",
-      borderRadius: "16px",
+      width: "74px",
+      height: "74px",
+      borderRadius: "22px",
       background: "#F3F5F9",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       flexShrink: 0,
+      marginBottom: "14px",
     },
     kpiTitle: {
       fontSize: "14px",
       color: textSoft,
       fontWeight: 700,
-      marginBottom: "12px",
+      marginBottom: "10px",
+      textAlign: "center",
     },
     kpiValue: {
       fontSize: "34px",
@@ -312,11 +314,15 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       fontWeight: 700,
       color: navy,
       marginBottom: "10px",
+      textAlign: "center",
     },
     kpiSub: {
-      fontSize: "13px",
+      fontSize: "12px",
       color: "#7A8CA8",
-      lineHeight: 1.6,
+      lineHeight: 1.7,
+      textAlign: "center",
+      maxWidth: "260px",
+      margin: "0 auto",
     },
     donutCard: {
       background: surface,
@@ -332,7 +338,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     donutTitle: {
       margin: 0,
       color: navy,
-      fontSize: "18px",
+      fontSize: "14px",
       fontWeight: 700,
     },
     smallText: {
@@ -349,7 +355,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     },
     compareGrid: {
       display: "grid",
-      gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
       gap: "18px",
       breakInside: "avoid",
       pageBreakInside: "avoid",
@@ -366,13 +372,13 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       pageBreakInside: "avoid",
     },
     compareTitle: {
-      fontSize: "20px",
+      fontSize: "14px",
       fontWeight: 700,
       color: navy,
       marginBottom: "8px",
     },
     compareDesc: {
-      fontSize: "13px",
+      fontSize: "12px",
       color: textSoft,
       lineHeight: 1.7,
       marginBottom: "18px",
@@ -397,7 +403,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       flexWrap: "wrap",
     },
     compareBarLabel: {
-      fontSize: "13px",
+      fontSize: "12px",
       color: "#4A5D7A",
       fontWeight: 700,
     },
@@ -423,6 +429,12 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       borderRadius: "999px",
       background: mutedBar,
     },
+    lowerTwoGrid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+      gap: "18px",
+      alignItems: "stretch",
+    },
     equityCard: {
       background: surface,
       border: `1px solid ${border}`,
@@ -439,6 +451,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     equityValueWrap: {
       display: "flex",
       alignItems: "baseline",
+      justifyContent: "space-between",
       gap: "12px",
       flexWrap: "wrap",
       marginBottom: "18px",
@@ -469,28 +482,22 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     },
     h2: {
       margin: 0,
-      fontSize: "22px",
+      fontSize: "14px",
       color: navy,
       fontWeight: 700,
+      lineHeight: 1.4,
     },
     explanation: {
-      fontSize: "13px",
+      fontSize: "12px",
       color: textSoft,
       lineHeight: 1.7,
       marginBottom: "16px",
     },
-    midGrid: {
+    bottomGrid: {
       display: "grid",
-      gridTemplateColumns: "1.2fr 1fr",
+      gridTemplateColumns: "1.35fr 0.9fr",
       gap: "18px",
       alignItems: "start",
-    },
-    sideStack: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "18px",
-      breakInside: "avoid",
-      pageBreakInside: "avoid",
     },
     summaryStatsGrid: {
       display: "grid",
@@ -512,7 +519,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       marginBottom: "8px",
     },
     statValue: {
-      fontSize: "20px",
+      fontSize: "18px",
       fontWeight: 700,
       color: navy,
     },
@@ -530,7 +537,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       marginBottom: "8px",
     },
     infoValue: {
-      fontSize: "18px",
+      fontSize: "16px",
       fontWeight: 700,
       color: navy,
       lineHeight: 1.5,
@@ -561,7 +568,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       marginBottom: "14px",
     },
     memberName: {
-      fontSize: "24px",
+      fontSize: "18px",
       fontWeight: 700,
       color: navy,
       marginBottom: "4px",
@@ -587,12 +594,12 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       pageBreakInside: "avoid",
     },
     centerLabel: {
-      fontSize: "13px",
+      fontSize: "12px",
       color: textSoft,
       marginBottom: "8px",
     },
     centerValue: {
-      fontSize: "28px",
+      fontSize: "24px",
       fontWeight: 700,
       color: navy,
       lineHeight: 1.15,
@@ -637,7 +644,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       marginBottom: "6px",
     },
     compareMiniSideValue: {
-      fontSize: "18px",
+      fontSize: "16px",
       fontWeight: 700,
       color: navy,
       lineHeight: 1.2,
@@ -665,7 +672,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       gap: "8px",
     },
     insuranceValue: {
-      fontSize: "18px",
+      fontSize: "16px",
       fontWeight: 700,
       color: navy,
       lineHeight: 1.2,
@@ -681,7 +688,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       border: `1px dashed ${border}`,
       borderRadius: "14px",
       padding: "18px",
-      fontSize: "13px",
+      fontSize: "12px",
       color: textSoft,
       lineHeight: 1.7,
       breakInside: "avoid",
@@ -697,7 +704,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       pageBreakInside: "avoid",
     },
     loanPersonName: {
-      fontSize: "18px",
+      fontSize: "14px",
       fontWeight: 700,
       color: navy,
       marginBottom: "12px",
@@ -723,7 +730,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       marginBottom: "6px",
     },
     loanSummaryValue: {
-      fontSize: "18px",
+      fontSize: "16px",
       fontWeight: 700,
       color: navy,
     },
@@ -756,7 +763,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
     },
     loanTd: {
       textAlign: "right",
-      fontSize: "14px",
+      fontSize: "12px",
       color: text,
       borderBottom: "1px solid #F0E6DA",
       padding: "12px 10px",
@@ -777,17 +784,17 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
       border: `1px solid ${border}`,
       borderRadius: "14px",
       padding: "16px",
-      fontSize: "15px",
+      fontSize: "12px",
       lineHeight: 1.8,
       color: text,
       boxSizing: "border-box",
-      fontFamily: "Arial, sans-serif",
+      fontFamily: 'Calibri, "Arial", sans-serif',
       background: "#FFFDFB",
     },
     recommendationsPrintText: {
       whiteSpace: "pre-wrap",
       wordBreak: "break-word",
-      fontSize: "15px",
+      fontSize: "12px",
       lineHeight: 1.9,
       color: text,
       background: "#FFFDFB",
@@ -826,6 +833,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
           html, body {
             margin: 0;
             padding: 0;
+            font-family: Calibri, Arial, sans-serif;
+            font-size: 12px;
           }
 
           .print-section,
@@ -844,6 +853,50 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
           td {
             break-inside: avoid !important;
             page-break-inside: avoid !important;
+          }
+
+          .action-button {
+            padding: 12px 18px;
+            border-radius: 12px;
+            border: 1px solid ${buttonBorder};
+            background: #ffffff;
+            color: #102A43;
+            font-weight: 700;
+            font-family: Calibri, Arial, sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            min-width: 160px;
+          }
+
+          .action-button:hover {
+            border-color: ${actionBlue};
+            color: ${actionBlue};
+          }
+
+          .action-button:active {
+            background: ${actionBlue};
+            border-color: ${actionBlue};
+            color: #ffffff;
+          }
+
+          .action-button.danger {
+            color: #d14343;
+            border-color: #efb1b1;
+          }
+
+          .action-button.danger:hover {
+            border-color: ${actionBlue};
+            color: ${actionBlue};
+          }
+
+          .action-button.primary-outline {
+            color: #102A43;
+          }
+
+          .action-button:focus-visible {
+            outline: 2px solid rgba(79, 102, 232, 0.25);
+            outline-offset: 2px;
           }
 
           @media print {
@@ -889,7 +942,9 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             .loan-group-print,
             .recommendations-print,
             .summary-box-print,
-            .foreign-exposure-print {
+            .foreign-exposure-print,
+            .equity-print,
+            .main-group-print {
               break-inside: avoid !important;
               page-break-inside: avoid !important;
             }
@@ -898,28 +953,12 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
             }
 
-            .responsive-grid-3 {
-              grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-            }
-
             .responsive-grid-2 {
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             }
 
-            .responsive-mid-grid {
-              display: block !important;
-            }
-
-            .donut-section-print {
-              display: block !important;
-              break-inside: avoid !important;
-              page-break-inside: avoid !important;
-              margin-bottom: 18px !important;
-            }
-
-            .donut-breakdown-print {
-              break-inside: avoid !important;
-              page-break-inside: avoid !important;
+            .responsive-bottom-grid {
+              grid-template-columns: 1.35fr 0.9fr !important;
             }
 
             .members-section {
@@ -948,11 +987,11 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
             }
 
-            .responsive-grid-3,
             .responsive-grid-2,
-            .responsive-mid-grid,
+            .responsive-bottom-grid,
+            .responsive-members-grid,
             .responsive-loans-grid,
-            .responsive-members-grid {
+            .responsive-lower-two {
               grid-template-columns: 1fr !important;
             }
 
@@ -972,7 +1011,8 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             .responsive-mini-grid,
             .responsive-insurance-grid,
             .responsive-loan-summary,
-            .responsive-kpi-inner {
+            .responsive-kpi-inner,
+            .responsive-grid-4 {
               grid-template-columns: 1fr !important;
             }
           }
@@ -981,13 +1021,13 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
 
       <div style={styles.page}>
         <div className="no-print" style={styles.actionsBar}>
-          <button onClick={onBack} style={buttonSecondary}>
+          <button onClick={onBack} className="action-button primary-outline">
             חזרה למסך העלאה
           </button>
-          <button onClick={onResetAll} style={buttonDanger}>
+          <button onClick={onResetAll} className="action-button danger">
             איפוס מלא
           </button>
-          <button onClick={handleExportPdf} style={buttonPrimary}>
+          <button onClick={handleExportPdf} className="action-button primary-outline">
             ייצוא ל־PDF
           </button>
         </div>
@@ -1026,7 +1066,7 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
 
             <KpiCard
               styles={styles}
-              icon={<WalletIcon />}
+              icon={<DepositIcon />}
               title="הפקדה חודשית"
               value={formatCurrency(family.monthlyDeposits)}
               subtext="סך ההפקדות החודשיות של בני המשפחה"
@@ -1036,7 +1076,6 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               title="חלוקה לפי מוצרים"
               subtitle="התפלגות הנכסים בין סוגי החיסכון הקיימים בתיק."
               items={products}
-              total={totalProducts}
               colors={[blue, cyan, purple, pink, gold, "#9FD0E6"]}
               styles={styles}
               formatCurrency={formatCurrency}
@@ -1046,14 +1085,13 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               title="חלוקה לפי גופים מנהלים"
               subtitle="התפלגות הניהול בין החברות והגופים המנהלים."
               items={managers}
-              total={totalManagers}
               colors={[navy, blue, purple, gold, pink, "#9FD0E6"]}
               styles={styles}
               formatCurrency={formatCurrency}
             />
           </section>
 
-          <section className="print-section responsive-grid-3 avoid-break" style={styles.compareGrid}>
+          <section className="print-section responsive-grid-2 avoid-break" style={styles.compareGrid}>
             <ComparisonChartCard
               styles={styles}
               title="צבירה צפויה בגיל פרישה"
@@ -1067,8 +1105,34 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
               explanation="השוואה בין קצבה צפויה עם המשך הפקדות לבין ללא המשך הפקדות."
               bars={retirementPensionBars}
             />
+          </section>
 
-            <section className="avoid-break" style={styles.equityCard}>
+          <section className="print-section responsive-lower-two" style={styles.lowerTwoGrid}>
+            <section className="foreign-exposure-print avoid-break" style={styles.sectionCard}>
+              <div style={styles.sectionHeader}>
+                <div style={styles.titleWithIcon}>
+                  <span>🌍</span>
+                  <h2 style={styles.h2}>חשיפה לחו"ל</h2>
+                </div>
+              </div>
+
+              <div style={styles.explanation}>
+                התרשים מציג חלוקה משוקללת בין חו"ל לישראל על בסיס נתוני
+                Exposures בכלל הנכסים.
+              </div>
+
+              <PercentDonutCard
+                title={"חשיפה לחו\"ל"}
+                subtitle={`חשיפה משוקללת לחו"ל: ${formatPercentLabel(
+                  weightedForeignExposure
+                )}`}
+                items={foreignExposureAllocation}
+                colors={[purple, gold]}
+                styles={styles}
+              />
+            </section>
+
+            <section className="equity-print avoid-break" style={styles.equityCard}>
               <div style={styles.sectionHeader}>
                 <div style={styles.titleWithIcon}>
                   <span>📊</span>
@@ -1091,102 +1155,88 @@ export default function ReportPage({ reportData, onBack, onResetAll }) {
             </section>
           </section>
 
-          <section className="print-section responsive-mid-grid" style={styles.midGrid}>
-            <section style={styles.sectionCard}>
-              <div className="donut-section-print">
-                <div style={styles.sectionHeader}>
-                  <div style={styles.titleWithIcon}>
-                    <span>🥧</span>
-                    <h2 style={styles.h2}>חלוקה לפי אפיקים ראשיים</h2>
-                  </div>
+          <section className="print-section responsive-bottom-grid" style={styles.bottomGrid}>
+            <section className="main-group-print avoid-break" style={styles.sectionCard}>
+              <div style={styles.sectionHeader}>
+                <div style={styles.titleWithIcon}>
+                  <span>🥧</span>
+                  <h2 style={styles.h2}>חלוקה לפי אפיקים ראשיים</h2>
                 </div>
-
-                <div style={styles.explanation}>
-                  התרשים מציג חלוקה משוקללת לפי צבירה של 10 הקטגוריות הראשיות
-                  מתוך MainGroups בכלל המוצרים של שני הלקוחות.
-                </div>
-
-                <DonutBreakdownCard
-                  items={mainGroupAllocation}
-                  styles={styles}
-                  formatCurrency={formatCurrency}
-                  colors={[
-                    navy,
-                    blue,
-                    cyan,
-                    purple,
-                    pink,
-                    gold,
-                    "#9FD0E6",
-                    "#8FB996",
-                    "#C08497",
-                    "#7B8CBF",
-                  ]}
-                />
               </div>
+
+              <div style={styles.explanation}>
+                התרשים מציג חלוקה משוקללת לפי צבירה של הקטגוריות הראשיות
+                בכלל המוצרים של שני הלקוחות.
+              </div>
+
+              <DonutBreakdownCard
+                items={mainGroupAllocation}
+                styles={styles}
+                formatCurrency={formatCurrency}
+                colors={[
+                  navy,
+                  blue,
+                  cyan,
+                  purple,
+                  pink,
+                  gold,
+                  "#9FD0E6",
+                  "#8FB996",
+                  "#C08497",
+                  "#7B8CBF",
+                ]}
+              />
             </section>
 
-            <div style={styles.sideStack}>
-              <section className="foreign-exposure-print avoid-break" style={styles.sectionCard}>
-                <div style={styles.sectionHeader}>
-                  <div style={styles.titleWithIcon}>
-                    <span>🌍</span>
-                    <h2 style={styles.h2}>חשיפה לחו"ל</h2>
-                  </div>
+            <section className="summary-box-print avoid-break" style={styles.sectionCard}>
+              <div style={styles.sectionHeader}>
+                <div style={styles.titleWithIcon}>
+                  <span>🧾</span>
+                  <h2 style={styles.h2}>סיכום מהיר</h2>
+                </div>
+              </div>
+
+              <div style={styles.summaryStatsGrid}>
+                <div style={styles.statCard}>
+                  <div style={styles.statLabel}>מוצרים</div>
+                  <div style={styles.statValue}>{products.length}</div>
                 </div>
 
-                <div style={styles.explanation}>
-                  התרשים מציג חלוקה משוקללת בין חו"ל לישראל על בסיס נתוני
-                  Exposures בכלל הנכסים.
+                <div style={styles.statCard}>
+                  <div style={styles.statLabel}>גופים מנהלים</div>
+                  <div style={styles.statValue}>{managers.length}</div>
                 </div>
 
-                <PercentDonutCard
-                  title={'חשיפה לחו"ל'}
-                  subtitle={`חשיפה משוקללת לחו"ל: ${formatPercentLabel(
-                    weightedForeignExposure
-                  )}`}
-                  items={foreignExposureAllocation}
-                  colors={[purple, gold]}
-                  styles={styles}
-                />
-              </section>
-
-              <section className="summary-box-print avoid-break" style={styles.sectionCard}>
-                <div style={styles.sectionHeader}>
-                  <div style={styles.titleWithIcon}>
-                    <span>🧾</span>
-                    <h2 style={styles.h2}>סיכום מהיר</h2>
-                  </div>
+                <div style={styles.statCard}>
+                  <div style={styles.statLabel}>בני משפחה</div>
+                  <div style={styles.statValue}>{members.length}</div>
                 </div>
 
-                <div style={styles.summaryStatsGrid}>
-                  <div style={styles.statCard}>
-                    <div style={styles.statLabel}>מוצרים</div>
-                    <div style={styles.statValue}>{products.length}</div>
-                  </div>
-
-                  <div style={styles.statCard}>
-                    <div style={styles.statLabel}>גופים מנהלים</div>
-                    <div style={styles.statValue}>{managers.length}</div>
-                  </div>
-
-                  <div style={styles.statCard}>
-                    <div style={styles.statLabel}>בני משפחה</div>
-                    <div style={styles.statValue}>{members.length}</div>
-                  </div>
-
-                  <div style={styles.statCard}>
-                    <div style={styles.statLabel}>אפיקים ראשיים</div>
-                    <div style={styles.statValue}>{mainGroupAllocation.length}</div>
-                  </div>
+                <div style={styles.statCard}>
+                  <div style={styles.statLabel}>אפיקים ראשיים</div>
+                  <div style={styles.statValue}>{mainGroupAllocation.length}</div>
                 </div>
+              </div>
 
-                <div style={styles.simpleInfoBox}>
-                  <div style={styles.infoLabel}>יחס הלוואות לנכסים</div>
-                  <div style={styles.infoValue}>{loanRatioToAssets.toFixed(1)}%</div>
+              <div style={styles.simpleInfoBox}>
+                <div style={styles.infoLabel}>יחס הלוואות לנכסים</div>
+                <div style={styles.infoValue}>{loanRatioToAssets.toFixed(1)}%</div>
+              </div>
+
+              <div style={{ ...styles.simpleInfoBox, marginTop: "12px" }}>
+                <div style={styles.infoLabel}>קצבה חודשית צפויה</div>
+                <div style={styles.infoValue}>
+                  {formatCurrency(family.monthlyPensionWithDeposits)}
                 </div>
-              </section>
-            </div>
+              </div>
+
+              <div style={{ ...styles.simpleInfoBox, marginTop: "12px" }}>
+                <div style={styles.infoLabel}>צבירה צפויה בגיל פרישה</div>
+                <div style={styles.infoValue}>
+                  {formatCurrency(family.projectedLumpSumWithDeposits)}
+                </div>
+              </div>
+            </section>
           </section>
 
           <section className="print-section members-section force-new-page-print" style={styles.sectionCard}>
@@ -1437,19 +1487,18 @@ function KpiCard({ styles, icon, title, value, subtext }) {
       <div
         className="responsive-kpi-inner"
         style={{
-          display: "grid",
-          gridTemplateColumns: "56px 1fr",
-          gap: "16px",
-          alignItems: "start",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          height: "100%",
         }}
       >
         <div style={styles.kpiIconWrap}>{icon}</div>
-
-        <div style={{ textAlign: "right" }}>
-          <div style={styles.kpiTitle}>{title}</div>
-          <div style={styles.kpiValue}>{value}</div>
-          <div style={styles.kpiSub}>{subtext}</div>
-        </div>
+        <div style={styles.kpiTitle}>{title}</div>
+        <div style={styles.kpiValue}>{value}</div>
+        <div style={styles.kpiSub}>{subtext}</div>
       </div>
     </div>
   );
@@ -1550,14 +1599,13 @@ function DonutSummaryCard({
   title,
   subtitle,
   items,
-  total,
   colors,
   styles,
   formatCurrency,
 }) {
   const safeItems = Array.isArray(items) ? items : [];
   const safeTotal =
-    total || safeItems.reduce((sum, item) => sum + (item.value || 0), 0) || 1;
+    safeItems.reduce((sum, item) => sum + (item.value || 0), 0) || 1;
 
   let current = 0;
   const segments = safeItems.map((item, index) => {
@@ -1696,25 +1744,24 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
 
   return (
     <div
-      className="donut-breakdown-print"
       style={{
-        display: "grid",
-        gridTemplateColumns: "220px 1fr",
+        display: "flex",
+        flexDirection: "column",
         gap: "18px",
-        alignItems: "start",
+        alignItems: "center",
       }}
     >
       <div
         style={{
           display: "flex",
           justifyContent: "center",
-          alignItems: "flex-start",
+          width: "100%",
         }}
       >
         <div
           style={{
-            width: "180px",
-            height: "180px",
+            width: "220px",
+            height: "220px",
             borderRadius: "50%",
             background: `conic-gradient(${gradient})`,
             position: "relative",
@@ -1724,7 +1771,7 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
           <div
             style={{
               position: "absolute",
-              inset: "32px",
+              inset: "40px",
               background: "#fff",
               borderRadius: "50%",
               border: "1px solid #E5D9CB",
@@ -1733,7 +1780,7 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
         {segments.length ? (
           segments.map((seg, index) => (
             <div
@@ -1750,26 +1797,30 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "12px 1fr auto",
+                  gridTemplateColumns: "auto 1fr auto",
                   gap: "10px",
                   alignItems: "center",
                 }}
               >
-                <span
+                <div
                   style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "50%",
-                    background: seg.color,
-                    display: "inline-block",
+                    fontWeight: 700,
+                    color: "#00215D",
+                    fontSize: "14px",
+                    minWidth: "64px",
+                    textAlign: "right",
                   }}
-                />
-                <div>
+                >
+                  {seg.percent.toFixed(1)}%
+                </div>
+
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
                       fontWeight: 700,
                       color: "#00215D",
                       fontSize: "14px",
+                      textAlign: "right",
                     }}
                   >
                     {seg.name}
@@ -1779,25 +1830,27 @@ function DonutBreakdownCard({ items, styles, formatCurrency, colors }) {
                       fontSize: "12px",
                       color: "#627D98",
                       marginTop: "2px",
+                      textAlign: "right",
                     }}
                   >
                     {formatCurrency(seg.value)}
                   </div>
                 </div>
-                <div
+
+                <span
                   style={{
-                    fontWeight: 700,
-                    color: "#00215D",
-                    fontSize: "14px",
+                    width: "14px",
+                    height: "14px",
+                    borderRadius: "50%",
+                    background: seg.color,
+                    display: "inline-block",
                   }}
-                >
-                  {seg.percent.toFixed(1)}%
-                </div>
+                />
               </div>
             </div>
           ))
         ) : (
-          <div style={{ color: "#627D98", fontSize: "13px" }}>
+          <div style={{ color: "#627D98", fontSize: "12px" }}>
             אין נתוני אפיקים להצגה
           </div>
         )}
@@ -1832,16 +1885,16 @@ function PercentDonutCard({ title, subtitle, items, colors, styles }) {
       : "#D7DEE7 0% 100%";
 
   return (
-    <section style={styles.donutCard}>
+    <section style={{ ...styles.donutCard, minHeight: "auto", boxShadow: "none", padding: 0, border: "none" }}>
       <h3 style={styles.donutTitle}>{title}</h3>
-      <div style={{ ...styles.smallText, marginTop: "6px" }}>{subtitle}</div>
+      <div style={{ ...styles.smallText, marginTop: "6px", marginBottom: "14px" }}>{subtitle}</div>
 
       <div style={styles.donutLayout}>
         <div style={{ display: "flex", justifyContent: "center" }}>
           <div
             style={{
-              width: "96px",
-              height: "96px",
+              width: "110px",
+              height: "110px",
               borderRadius: "50%",
               background: `conic-gradient(${gradient})`,
               position: "relative",
@@ -1851,7 +1904,7 @@ function PercentDonutCard({ title, subtitle, items, colors, styles }) {
             <div
               style={{
                 position: "absolute",
-                inset: "15px",
+                inset: "18px",
                 background: "#fff",
                 borderRadius: "50%",
                 border: "1px solid #E5D9CB",
@@ -1985,18 +2038,38 @@ function ZviranLogo({ light = false }) {
   );
 }
 
-function WalletIcon() {
+function DepositIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <rect x="3" y="6" width="16" height="12" rx="2" stroke="#12B76A" strokeWidth="2" />
-      <path d="M19 9H21V15H19" stroke="#12B76A" strokeWidth="2" strokeLinecap="round" />
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 3V14"
+        stroke="#3EAF63"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.5 6.5L12 3L15.5 6.5"
+        stroke="#3EAF63"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <rect
+        x="4"
+        y="14"
+        width="16"
+        height="6"
+        rx="2"
+        stroke="#3EAF63"
+        strokeWidth="2.2"
+      />
     </svg>
   );
 }
 
 function GiftIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
       <rect x="4" y="7" width="16" height="13" rx="2" stroke="#00215D" strokeWidth="2" />
       <path d="M12 7V20" stroke="#00215D" strokeWidth="2" />
       <path d="M4 11H20" stroke="#00215D" strokeWidth="2" />
@@ -2005,33 +2078,3 @@ function GiftIcon() {
     </svg>
   );
 }
-
-const buttonPrimary = {
-  padding: "12px 18px",
-  borderRadius: "12px",
-  border: "none",
-  background: "#2563eb",
-  color: "#fff",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const buttonSecondary = {
-  padding: "12px 18px",
-  borderRadius: "12px",
-  border: "1px solid #cbd5e1",
-  background: "#fff",
-  color: "#0f172a",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const buttonDanger = {
-  padding: "12px 18px",
-  borderRadius: "12px",
-  border: "1px solid #ef4444",
-  background: "#fff",
-  color: "#ef4444",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
